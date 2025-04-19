@@ -69,3 +69,4 @@ Thumbs.db
 .overcommit.yml
 
 *.gem
+.rspec_status
