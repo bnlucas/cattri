@@ -5,36 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fec6a554-a186-4966-830b-5ef89e82e898" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.github/workflows/main.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.rspec" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.rubocop.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CHANGELOG.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CODE_OF_CONDUCT.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Gemfile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LICENSE.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Rakefile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/bin/console" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/bin/setup" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cattri.gemspec" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/cattri.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/cattri/class_attributes.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/cattri/error.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/cattri/helpers.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/cattri/instance_attributes.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/cattri/introspection.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/cattri/version.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sig/cattri.rbs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/cattri/class_attributes_spec.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/cattri/error_spec.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/cattri/helpers_spec.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/cattri/instance_attributes_spec.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/cattri/introspection_spec.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/cattri_spec.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/simplecov_helper.rb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spec/spec_helper.rb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.rspec_status" beforeDir="false" afterPath="$PROJECT_DIR$/.rspec_status" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/cattri/class_attributes.rb" beforeDir="false" afterPath="$PROJECT_DIR$/lib/cattri/class_attributes.rb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/cattri/helpers.rb" beforeDir="false" afterPath="$PROJECT_DIR$/lib/cattri/helpers.rb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/cattri/instance_attributes.rb" beforeDir="false" afterPath="$PROJECT_DIR$/lib/cattri/instance_attributes.rb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/cattri/introspection.rb" beforeDir="false" afterPath="$PROJECT_DIR$/lib/cattri/introspection.rb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/spec/cattri/helpers_spec.rb" beforeDir="false" afterPath="$PROJECT_DIR$/spec/cattri/helpers_spec.rb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -304,7 +281,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1744935621196</updated>
-      <workItem from="1744935622460" duration="28499000" />
+      <workItem from="1744935622460" duration="36201000" />
     </task>
     <servers />
   </component>

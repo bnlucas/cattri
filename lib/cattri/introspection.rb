@@ -39,7 +39,7 @@ module Cattri
 
         class_attributes.each_with_object({}) do |attribute, hash|
           hash[attribute] = send(attribute)
-        end
+        end.freeze
       end
 
       # @!method snapshot_cattrs

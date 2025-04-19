@@ -24,7 +24,7 @@ RSpec.describe Cattri::Helpers do
     let(:defaults) { { readonly: false } }
 
     it "returns a name and attribute definition hash" do
-      name, definition = helper.send(:define_attribute, :foo, { default: 123 }, nil, defaults)
+      name, definition = helper.send(:define_attribute, helper, :foo, { default: 123 }, nil, defaults)
 
       expect(name).to eq(:foo)
       expect(definition).to include(
@@ -38,19 +38,19 @@ RSpec.describe Cattri::Helpers do
     end
 
     it "wraps multi-arg setters into an array" do
-      _, definition = helper.send(:define_attribute, :list, {}, nil, {})
+      _, definition = helper.send(:define_attribute, helper, :list, {}, nil, {})
 
       expect(definition[:setter].call(:a, :b)).to eq(%i[a b])
     end
 
     it "unwraps single-arg setters to the value directly" do
-      _, definition = helper.send(:define_attribute, :val, {}, nil, {})
+      _, definition = helper.send(:define_attribute, helper, :val, {}, nil, {})
 
       expect(definition[:setter].call(:only)).to eq(:only)
     end
 
     it "uses kwargs if only kwargs are given" do
-      _, definition = helper.send(:define_attribute, :kwarg, {}, nil, {})
+      _, definition = helper.send(:define_attribute, helper, :kwarg, {}, nil, {})
 
       expect(definition[:setter].call(foo: 1)).to eq({ foo: 1 })
     end
@@ -58,7 +58,7 @@ RSpec.describe Cattri::Helpers do
     it "uses the provided block as setter if given" do
       block = lambda(&:upcase)
 
-      _, definition = helper.send(:define_attribute, :custom, {}, block, {})
+      _, definition = helper.send(:define_attribute, helper, :custom, {}, block, {})
       expect(definition[:setter].call("ok")).to eq("OK")
     end
   end

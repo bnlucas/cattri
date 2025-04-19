@@ -39,13 +39,14 @@ module Cattri
     include Cattri::Helpers
 
     # Default options applied to all class-level attributes.
-    DEFAULT_OPTIONS = { default: nil, readonly: false }.freeze
+    DEFAULT_OPTIONS = { access: :public, default: nil, readonly: false, instance_reader: true }.freeze
 
     # Defines a class-level attribute with optional default, coercion, and reader access.
     #
     # @param name [Symbol] the attribute name
     # @param options [Hash] additional attribute options
     # @option options [Object, Proc] :default the default value or callable
+    # @option options [Symbol] :access the method access level, defaults to :public (:public, :protected, :private)
     # @option options [Boolean] :readonly whether the attribute is read-only
     # @option options [Boolean] :instance_reader whether to define an instance-level reader
     # @yield [*args] Optional setter block for custom coercion
@@ -54,12 +55,15 @@ module Cattri
     def class_attribute(name, **options, &block)
       define_inheritance unless respond_to?(:__cattri_class_attributes)
 
-      name, definition = define_attribute(name, options, block, DEFAULT_OPTIONS)
+      name, definition = define_attribute(self, name, options, block, DEFAULT_OPTIONS)
       raise Cattri::Error, "Class attribute `#{name}` already defined" if class_attribute_defined?(name)
 
       __cattri_class_attributes[name] = definition
+
       define_accessor(name, definition)
-      define_instance_reader(name) if options.fetch(:instance_reader, true)
+      define_instance_reader(name) if definition[:instance_reader]
+
+      apply_access(self, definition)
     end
 
     # Defines a read-only class attribute (no writer).

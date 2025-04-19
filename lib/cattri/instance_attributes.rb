@@ -38,23 +38,26 @@ module Cattri
       include Cattri::Helpers
 
       # Default options for all instance attributes
-      DEFAULT_OPTIONS = { default: nil, reader: true, writer: true }.freeze
+      DEFAULT_OPTIONS = { access: :public, default: nil, reader: true, writer: true }.freeze
 
-      # Defines a new instance-level attribute with optional default and coercion.
+      # Defines an instance-level attribute with optional default and coercion.
       #
       # @param name [Symbol, String] the name of the attribute
       # @param options [Hash] additional options like `:default`, `:reader`, `:writer`
       # @option options [Object, Proc] :default the default value or proc returning the value
+      # @option options [Symbol] :access the method access level, defaults to :public (:public, :protected, :private)
       # @option options [Boolean] :reader whether to define a reader method (default: true)
       # @option options [Boolean] :writer whether to define a writer method (default: true)
       # @yield [value] optional coercion logic for the writer
       # @return [void]
       def instance_attribute(name, **options, &block)
-        name, definition = define_attribute(name, options, block, DEFAULT_OPTIONS)
+        name, definition = define_attribute(self, name, options, block, DEFAULT_OPTIONS)
         __cattri_instance_attributes[name] = definition
 
         define_reader(name, definition) if options.fetch(:reader, true)
         define_writer(name, definition) if options.fetch(:writer, true)
+
+        apply_access(self, definition)
       end
 
       # Defines a read-only instance-level attribute.
