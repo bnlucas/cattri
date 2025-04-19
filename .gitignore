@@ -1,0 +1,71 @@
+# Ignore bundler config.
+/.bundle
+vendor/
+
+# Ignore the default SQLite database.
+/db/*.sqlite3
+
+# Ignore all logfiles and tempfiles.
+/log/*.log
+/tmp
+
+# Ignore coverage reports.
+/coverage/
+
+# Ignore system specific files.
+/.byebug
+/.yardoc
+/._*
+
+# Ignore bundler binstubs.
+/bin/
+
+# Ignore Gemfile.lock
+Gemfile.lock
+
+# Ignore .env file containing sensitive information.
+.env
+
+# Ignore any local .env files.
+.env.*
+
+# VSCode settings
+.vscode/
+
+# RubyMine settings
+.idea/
+
+# Ignore VSCode workspace settings
+*.code-workspace
+
+# Ignore VSCode user-specific settings
+.vscode-server/
+
+# Ignore VSCode logs
+.vscode-logs/
+
+# Ignore the generated RDoc directory.
+/doc/
+
+# Ignore the default RVM or rbenv config.
+.rvmrc
+.rbenv-vars
+
+# Ignore macOS metadata directories.
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Ignore Windows thumbnail database.
+Thumbs.db
+
+# Ignore the Rubocop auto-generated configuration file.
+.rubocop_todo.yml
+
+# Ignore the coverage analysis directory.
+/coverage/
+
+# Ignore the local config file for Overcommit.
+.overcommit.yml
+
+*.gem
