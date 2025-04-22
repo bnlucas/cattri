@@ -5,7 +5,11 @@ AllCops:
 
 Style/Documentation:
   Exclude:
-    - spec/castkit/**/*.rb
+    - spec/cattri/**/*.rb
+
+Style/DocumentationMethod:
+  Exclude:
+    - spec/cattri/**/*.rb
 
 Style/StringLiterals:
   Enabled: true

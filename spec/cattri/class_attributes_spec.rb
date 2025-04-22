@@ -7,7 +7,7 @@ RSpec.describe Cattri::ClassAttributes do
 
   let(:test_class) do
     Class.new do
-      extend Cattri::ClassAttributes
+      include Cattri
       include Cattri::Introspection
 
       cattr :items, default: []
@@ -67,14 +67,21 @@ RSpec.describe Cattri::ClassAttributes do
       expect(instance).not_to respond_to(:no_instance_access)
     end
 
-    it "raises an error on duplicate attribute names" do
+    it "raises an AttributeDefinedError if the attribute is already defined" do
+      test_class.cattr :foo, default: 42
+
       expect do
-        Class.new do
-          extend Cattri::ClassAttributes
-          cattr :items, default: []
-          cattr :items, default: []
-        end
-      end.to raise_error(Cattri::Error, /Class attribute `items` already defined/)
+        test_class.cattr :foo, default: 100
+      end.to raise_error(Cattri::AttributeDefinedError, "Class attribute :foo has already been defined")
+    end
+
+    it "raises an AttributeDefinitionError if a method definition fails" do
+      allow(Cattri::AttributeDefiner).to receive(:define_callable_accessor).and_raise(StandardError,
+                                                                                      "method definition failed")
+
+      expect do
+        test_class.cattr :bar, default: 10
+      end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :bar on/)
     end
   end
 
@@ -107,11 +114,11 @@ RSpec.describe Cattri::ClassAttributes do
 
   describe ".class_attribute_defined? / .cattr_defined?" do
     it "returns true if class attribute is defined" do
-      expect(subject.class_attribute_defined?(:items)).to be(true)
+      expect(subject.class_attribute_defined?(:items)).to eq(true)
     end
 
     it "returns false if class attribute is not defined" do
-      expect(subject.class_attribute_defined?(:foo)).to be(false)
+      expect(subject.class_attribute_defined?(:foo)).to eq(false)
     end
   end
 
@@ -129,54 +136,19 @@ RSpec.describe Cattri::ClassAttributes do
     end
   end
 
-  describe ".reset_class_attributes! / .reset_cattrs!" do
-    it "resets all class attributes" do
-      default_values = subject.snapshot_class_attributes
+  describe "#context" do
+    it "returns a Cattri::Context instance" do
+      context = subject.send(:context)
 
-      subject.items = [1, 2, 3]
-      subject.map = { a: 1, b: 2, c: 3 }
-      subject.normalized_symbol = :testing
-
-      set_values = subject.snapshot_class_attributes
-      expect(default_values).not_to eq(set_values)
-
-      subject.reset_class_attributes!
-      reset_values = subject.snapshot_class_attributes
-
-      expect(reset_values).to eq(default_values)
-    end
-  end
-
-  describe ".reset_class_attribute! / .reset_cattr!" do
-    before do
-      allow(subject).to receive(:reset_attributes).and_call_original
-    end
-
-    it "resets a given attribute" do
-      default_values = subject.snapshot_class_attributes
-
-      subject.items = [1, 2, 3]
-      subject.map = { a: 1, b: 2, c: 3 }
-
-      set_values = subject.class_attributes.map { |k| subject.send(k) }
-      expect(default_values).not_to eq(set_values)
-
-      subject.reset_class_attribute!(:items)
-      expect(subject.items).to eq([])
-      expect(subject.map).to eq({ a: 1, b: 2, c: 3 })
-    end
-
-    it "does nothing for an unknown attribute" do
-      subject.reset_class_attribute!(:foo)
-
-      expect(subject).not_to have_received(:reset_attributes)
+      expect(context).to be_a(Cattri::Context)
+      expect(context.target).to eq(subject)
     end
   end
 
   describe "inheritance behavior" do
     let(:parent_class) do
       Class.new do
-        extend Cattri::ClassAttributes
+        include Cattri
 
         cattr :items, default: []
       end
@@ -202,9 +174,7 @@ RSpec.describe Cattri::ClassAttributes do
       %i[cattr_reader class_attribute_reader],
       %i[cattrs class_attributes],
       %i[cattr_defined? class_attribute_defined?],
-      %i[cattr_definition class_attribute_definition],
-      %i[reset_cattrs! reset_class_attributes!],
-      %i[reset_cattr! reset_class_attribute!]
+      %i[cattr_definition class_attribute_definition]
     ].each do |alias_name, method_name|
       it "defines the alias #{alias_name} to #{method_name}" do
         expect(subject.method(alias_name)).to eq(subject.method(method_name))
