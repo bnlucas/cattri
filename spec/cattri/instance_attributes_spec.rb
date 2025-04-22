@@ -7,6 +7,7 @@ RSpec.describe Cattri::InstanceAttributes do
 
   let(:test_class) do
     Class.new do
+      extend Cattri::Visibility
       include Cattri::InstanceAttributes
       include Cattri::Introspection
 
@@ -34,6 +35,26 @@ RSpec.describe Cattri::InstanceAttributes do
       instance.items = expected
 
       expect(instance.items).to eq([1, 2, 3])
+    end
+
+    it "raises an AttributeDefinedError if the attribute is already defined" do
+      test_class.iattr :foo, default: 42
+
+      expect do
+        test_class.iattr :foo, default: 100
+      end.to raise_error(Cattri::AttributeDefinedError, "Instance attribute :foo has already been defined")
+    end
+
+    it "raises an AttributeDefinitionError if a method definition fails" do
+      test_class = Class.new do
+        include Cattri
+      end
+
+      allow(Cattri::AttributeDefiner).to receive(:define_accessor).and_raise(StandardError, "method definition failed")
+
+      expect do
+        test_class.iattr :bar, default: 10
+      end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :bar on/)
     end
   end
 
@@ -73,11 +94,11 @@ RSpec.describe Cattri::InstanceAttributes do
 
   describe ".instance_attribute_defined? / .iattr_defined?" do
     it "returns true if instance attribute is defined" do
-      expect(test_class.instance_attribute_defined?(:items)).to be(true)
+      expect(test_class.instance_attribute_defined?(:items)).to eq(true)
     end
 
     it "returns false if instance attribute is not defined" do
-      expect(test_class.instance_attribute_defined?(:foo)).to be(false)
+      expect(test_class.instance_attribute_defined?(:foo)).to eq(false)
     end
   end
 
@@ -95,47 +116,12 @@ RSpec.describe Cattri::InstanceAttributes do
     end
   end
 
-  describe ".reset_instance_attributes! / .reset_iattrs!" do
-    it "resets all class attributes" do
-      default_values = instance.snapshot_instance_attributes
+  describe "#context" do
+    it "returns a Cattri::Context instance" do
+      context = instance.class.send(:context)
 
-      instance.items = [1, 2, 3]
-      instance.secret = "secret"
-      instance.normalized_symbol = :testing
-
-      set_values = instance.snapshot_instance_attributes
-      expect(default_values).not_to eq(set_values)
-
-      instance.reset_instance_attributes!
-      reset_values = instance.snapshot_instance_attributes
-
-      expect(reset_values).to eq(default_values)
-    end
-  end
-
-  describe ".reset_instance_attribute! / .reset_iattr!" do
-    before do
-      allow(instance).to receive(:reset_attributes).and_call_original
-    end
-
-    it "resets a given attribute" do
-      default_values = instance.snapshot_instance_attributes
-
-      instance.items = [1, 2, 3]
-      instance.secret = "secret"
-
-      set_values = instance.snapshot_instance_attributes
-      expect(default_values).not_to eq(set_values)
-
-      instance.reset_instance_attribute!(:items)
-      expect(instance.items).to eq([])
-      expect(instance.instance_variable_get(:@secret)).to eq("secret")
-    end
-
-    it "does nothing for an unknown attribute" do
-      instance.reset_instance_attribute!(:foo)
-
-      expect(instance).not_to have_received(:reset_attributes)
+      expect(context).to be_a(Cattri::Context)
+      expect(context.target).to eq(instance.class)
     end
   end
 
@@ -151,15 +137,6 @@ RSpec.describe Cattri::InstanceAttributes do
     ].each do |alias_name, method_name|
       it "aliases .#{alias_name} to .#{method_name}" do
         expect(test_class.method(alias_name)).to eq(test_class.method(method_name))
-      end
-    end
-
-    [
-      %i[reset_iattrs! reset_instance_attributes!],
-      %i[reset_iattr! reset_instance_attribute!]
-    ].each do |alias_name, method_name|
-      it "aliases ##{alias_name} to ##{method_name}" do
-        expect(instance.method(alias_name)).to eq(instance.method(method_name))
       end
     end
   end

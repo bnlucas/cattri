@@ -11,8 +11,7 @@ RSpec.describe Cattri::Introspection do
 
   let(:attrs_class) do
     Class.new(test_class) do
-      extend Cattri::ClassAttributes
-      include Cattri::InstanceAttributes
+      include Cattri
 
       cattr :c_test, default: "default"
       iattr :i_test, default: "default"
