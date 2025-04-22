@@ -63,10 +63,21 @@ module Cattri
   # @example
   #   raise Cattri::UnsupportedTypeError.new(:foo)
   #   # => Attribute type :foo is not supported
-  class UnsupportedTypeError < Error
+  class UnsupportedTypeError < Cattri::AttributeError
     # @param type [Symbol] the invalid type that triggered the error
     def initialize(type)
       super("Attribute type :#{type} is not supported")
+    end
+  end
+
+  # Raised when a block is provided when defining a group of attributes `cattr :attr_a, :attr_b do ... end`
+  #
+  # @example
+  #   raise Cattri::AmbiguousBlockError
+  #   # => Cannot define multiple attributes with a block
+  class AmbiguousBlockError < Cattri::AttributeError
+    def initialize
+      super("Cannot define multiple attributes with a block")
     end
   end
 end

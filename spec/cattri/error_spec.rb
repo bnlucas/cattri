@@ -39,4 +39,12 @@ RSpec.describe Cattri::Error do
       expect(error.message).to eq("Attribute type :invalid_type is not supported")
     end
   end
+
+  describe "Cattri::AmbiguousBlockError" do
+    it "raises an error when an ambiguous block is passed" do
+      error = Cattri::AmbiguousBlockError.new
+
+      expect(error.message).to eq("Cannot define multiple attributes with a block")
+    end
+  end
 end

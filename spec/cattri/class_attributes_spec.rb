@@ -30,6 +30,13 @@ RSpec.describe Cattri::ClassAttributes do
       expect(subject).to respond_to(:items)
     end
 
+    it "defines multiple readonly attributes at once" do
+      test_class.class_attribute :a, :b, default: "locked"
+
+      expect(subject.a).to eq("locked")
+      expect(subject.b).to eq("locked")
+    end
+
     it "defines a reader" do
       expect(subject.items).to eq([])
     end
@@ -83,6 +90,12 @@ RSpec.describe Cattri::ClassAttributes do
         test_class.cattr :bar, default: 10
       end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :bar on/)
     end
+
+    it "raises AmbiguousBlockError when using a block with multiple attributes" do
+      expect do
+        test_class.class_attribute(:a, :b) { |v| v }
+      end.to raise_error(Cattri::AmbiguousBlockError, "Cannot define multiple attributes with a block")
+    end
   end
 
   describe ".class_attribute_reader / .cattr_reader" do
@@ -103,6 +116,15 @@ RSpec.describe Cattri::ClassAttributes do
 
       expect(subject.readonly).to eq("static")
       expect(subject).not_to have_received(:instance_variable_set).with(:@readonly, "readonly")
+    end
+
+    it "defines multiple readonly attributes at once" do
+      test_class.class_attribute_reader :a, :b, default: "locked"
+
+      expect(subject.a).to eq("locked")
+      expect(subject.b).to eq("locked")
+      expect(subject).not_to respond_to(:a=)
+      expect(subject).not_to respond_to(:b=)
     end
   end
 

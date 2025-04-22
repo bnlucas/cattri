@@ -1,3 +1,13 @@
+## [0.1.2] - 2025-04-22
+
+### Added
+
+- Support for defining multiple attributes in a single call to `cattr` or `iattr`.
+    - Example: `cattr :foo, :bar, default: 1`
+    - Shared options apply to all attributes.
+- Validation to prevent use of a block when defining multiple attributes.
+    - Raises `Cattri::AmbiguousBlockError` if `&block` is passed with more than one attribute.
+
 ## [0.1.1] - 2025-04-22
 
 ### Added
