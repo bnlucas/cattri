@@ -85,6 +85,21 @@ RSpec.describe Cattri::ClassAttributes do
       expect(subject.with_predicate?).to eq(false)
     end
 
+    it "defines an instance-level predicate proxy" do
+      subject.cattr :with_predicate, default: "123", predicate: true
+      instance = subject.new
+
+      expect(instance).to respond_to(:with_predicate?)
+      expect(instance.with_predicate?).to eq(true)
+    end
+
+    it "does not define an instance-level predicate proxy" do
+      subject.cattr :with_predicate, default: "123", predicate: true, instance_reader: false
+      instance = subject.new
+
+      expect(instance).not_to respond_to(:with_predicate?)
+    end
+
     it "raises an AttributeError when a predicate (ends_with?('?')) attribute is defined" do
       expect do
         test_class.cattr :predicate?, default: "123"

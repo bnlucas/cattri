@@ -1,3 +1,12 @@
+## [0.1.3] - 2025-04-22
+
+### Added
+
+- ✅ Support for `predicate: true` on both `iattr` and `cattr` — defines a `:name?` method returning `!!send(:name)`
+- ✅ `iattr_alias` and `cattr_alias` — define alias methods that delegate to existing attributes (e.g., `:foo?` for `:foo`)
+- Predicate methods inherit visibility from the original attribute and are excluded from introspection (`iattrs`, `cattrs`)
+- Raised error when attempting to define an attribute ending in `?`, with guidance to use `predicate: true` or `*_alias`
+
 ## [0.1.2] - 2025-04-22
 
 ### Added

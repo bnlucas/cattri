@@ -228,7 +228,34 @@ module Cattri
         raise Cattri::AttributeDefinitionError.new(self, attribute, e)
       end
 
-      context.define_method(attribute, name: :"#{name}?") { !!send(attribute.name) } if options[:predicate]
+      define_predicate_methods(attribute) if attribute[:predicate]
+    end
+
+    # Defines predicate-style (`:name?`) methods for a class-level attribute.
+    #
+    # If `attribute[:predicate]` is true, this defines a method named `:name?` that returns
+    # a boolean based on the truthiness of the attribute's value (`!!value`).
+    #
+    # If `attribute[:instance_reader]` is also true, an instance-level predicate method
+    # is defined that delegates to the class-level value.
+    #
+    # Visibility is inherited from the original attribute.
+    #
+    # @param attribute [Cattri::Attribute] the attribute for which to define predicate methods
+    # @return [void]
+    def define_predicate_methods(attribute)
+      return unless attribute[:predicate]
+
+      predicate_name = :"#{attribute.name}?"
+
+      # rubocop:disable Style/DoubleNegation
+      context.define_method(attribute, name: predicate_name) { !!send(attribute.name) }
+      return unless attribute[:instance_reader]
+
+      Cattri::AttributeDefiner.define_instance_level_method(attribute, context, name: predicate_name) do
+        !!self.class.__send__(attribute.name)
+      end
+      # rubocop:enable Style/DoubleNegation
     end
 
     # Internal registry of defined class-level attributes.
