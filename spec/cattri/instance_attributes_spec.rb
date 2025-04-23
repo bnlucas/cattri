@@ -26,6 +26,16 @@ RSpec.describe Cattri::InstanceAttributes do
       expect(instance).to respond_to(:items)
     end
 
+    it "defines multiple write-only attributes" do
+      test_class.instance_attribute :x, :y
+      instance = test_class.new
+
+      expect(instance).to respond_to(:x=)
+      expect(instance).to respond_to(:y=)
+      expect(instance).to respond_to(:x)
+      expect(instance).to respond_to(:y)
+    end
+
     it "defines a reader" do
       expect(instance.items).to eq([])
     end
@@ -56,6 +66,12 @@ RSpec.describe Cattri::InstanceAttributes do
         test_class.iattr :bar, default: 10
       end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :bar on/)
     end
+
+    it "raises AmbiguousBlockError when using a block with multiple attributes" do
+      expect do
+        test_class.iattr(:foo, :bar) { |v| v }
+      end.to raise_error(Cattri::AmbiguousBlockError, "Cannot define multiple attributes with a block")
+    end
   end
 
   describe ".instance_attribute_reader / .iattr_reader" do
@@ -70,6 +86,15 @@ RSpec.describe Cattri::InstanceAttributes do
     it "does not allow setting a readonly attribute" do
       expect { instance.readonly = "fail" }.to raise_error(NoMethodError)
     end
+
+    it "defines multiple read-only attributes" do
+      test_class.iattr_reader :alpha, :beta, default: "readable"
+
+      expect(instance).to respond_to(:alpha)
+      expect(instance).to respond_to(:beta)
+      expect(instance).not_to respond_to(:alpha=)
+      expect(instance).not_to respond_to(:beta=)
+    end
   end
 
   describe ".instance_attribute_writer / .iattr_writer" do
@@ -83,6 +108,38 @@ RSpec.describe Cattri::InstanceAttributes do
 
     it "does not allow getting a write-only attribute" do
       expect { instance.secret }.to raise_error(NoMethodError)
+    end
+
+    it "defines multiple write-only attributes" do
+      test_class.iattr_writer :x, :y
+
+      expect(instance).to respond_to(:x=)
+      expect(instance).to respond_to(:y=)
+      expect(instance).not_to respond_to(:x)
+      expect(instance).not_to respond_to(:y)
+    end
+  end
+
+  describe ".instance_attribute_setter / .iattr_setter" do
+    it "replaces the setter for an existing attribute" do
+      test_class.instance_attribute_setter(:items) do |val|
+        Array(val).map(&:to_sym)
+      end
+
+      instance.items = %w[a b c]
+      expect(instance.items).to eq(%i[a b c])
+    end
+
+    it "raises AttributeNotDefinedError if the attribute is not defined" do
+      expect do
+        test_class.instance_attribute_setter(:unknown) { |v| v }
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Instance attribute :unknown has not been defined/)
+    end
+
+    it "raises AttributeDefinitionError if the attribute is readonly" do
+      expect do
+        test_class.instance_attribute_setter(:readonly) { |v| v }
+      end.to raise_error(Cattri::AttributeError, /Cannot define setter for readonly attribute :readonly/)
     end
   end
 

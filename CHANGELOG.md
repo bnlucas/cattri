@@ -1,3 +1,26 @@
+## [0.1.2] - 2025-04-22
+
+### Added
+
+- Support for defining multiple attributes in a single call to `cattr` or `iattr`.
+  - Example: `cattr :foo, :bar, default: 1`
+  - Shared options apply to all attributes.
+- Adds `cattr_setter` and `iattr_setter` for defining setters on attributes, useful when defining multiple attributes since ambiguous blocks are not allow.
+  ```ruby
+  class Config
+    include Cattri
+  
+    cattr :a, :b               # new functionality, does not allow setter blocks.
+                               # creates writers as def a=(val); @a = val; end
+    
+    cattr_setter :a do |val|   # redefines a= as def a=(val); val.to_s.downcase.to_sym; end
+      val.to_s.downcase.to_sym
+    end
+  end
+  ```
+- Validation to prevent use of a block when defining multiple attributes.
+  - Raises `Cattri::AmbiguousBlockError` if `&block` is passed with more than one attribute.
+
 ## [0.1.1] - 2025-04-22
 
 ### Added

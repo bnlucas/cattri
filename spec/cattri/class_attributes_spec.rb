@@ -30,6 +30,13 @@ RSpec.describe Cattri::ClassAttributes do
       expect(subject).to respond_to(:items)
     end
 
+    it "defines multiple readonly attributes at once" do
+      test_class.class_attribute :a, :b, default: "locked"
+
+      expect(subject.a).to eq("locked")
+      expect(subject.b).to eq("locked")
+    end
+
     it "defines a reader" do
       expect(subject.items).to eq([])
     end
@@ -83,6 +90,12 @@ RSpec.describe Cattri::ClassAttributes do
         test_class.cattr :bar, default: 10
       end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :bar on/)
     end
+
+    it "raises AmbiguousBlockError when using a block with multiple attributes" do
+      expect do
+        test_class.class_attribute(:a, :b) { |v| v }
+      end.to raise_error(Cattri::AmbiguousBlockError, "Cannot define multiple attributes with a block")
+    end
   end
 
   describe ".class_attribute_reader / .cattr_reader" do
@@ -103,6 +116,50 @@ RSpec.describe Cattri::ClassAttributes do
 
       expect(subject.readonly).to eq("static")
       expect(subject).not_to have_received(:instance_variable_set).with(:@readonly, "readonly")
+    end
+
+    it "defines multiple readonly attributes at once" do
+      test_class.class_attribute_reader :a, :b, default: "locked"
+
+      expect(subject.a).to eq("locked")
+      expect(subject.b).to eq("locked")
+      expect(subject).not_to respond_to(:a=)
+      expect(subject).not_to respond_to(:b=)
+    end
+  end
+
+  describe ".class_attribute_setter / .cattr_setter" do
+    it "replaces the setter for an existing attribute" do
+      test_class.class_attribute_setter(:items) do |val|
+        puts "<<< #{val.inspect} >>>"
+        Array(val).map(&:to_sym)
+      end
+
+      subject.items = %w[a b c]
+
+      expect(subject.items).to eq(%i[a b c])
+    end
+
+    it "updates the callable form as well" do
+      test_class.class_attribute_setter(:items) do |*val|
+        Array(val).reverse
+      end
+
+      subject.items 1, 2, 3
+
+      expect(subject.items).to eq([3, 2, 1])
+    end
+
+    it "raises AttributeNotDefinedError if the attribute is not defined" do
+      expect do
+        test_class.class_attribute_setter(:undefined) { |v| v }
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :undefined has not been defined/)
+    end
+
+    it "raises AttributeNotDefinedError if the writer method does not exist" do
+      expect do
+        test_class.class_attribute_setter(:readonly) { |v| v }
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :readonly has not been defined/)
     end
   end
 

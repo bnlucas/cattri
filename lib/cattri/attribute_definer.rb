@@ -92,6 +92,18 @@ module Cattri
         end
       end
 
+      # Defines, or redefines, a writer method (`foo=`) that sets and coerces a value via the attribute setter.
+      #
+      # @param attribute [Cattri::Attribute]
+      # @param context [Cattri::Context]
+      # @return [void]
+      def define_writer!(attribute, context)
+        context.define_method!(attribute, name: :"#{attribute.name}=") do |value|
+          coerced_value = attribute.setter.call(value)
+          instance_variable_set(attribute.ivar, coerced_value)
+        end
+      end
+
       private
 
       # Returns the memoized value for an attribute or computes it from the default.

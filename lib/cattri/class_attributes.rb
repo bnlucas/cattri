@@ -20,9 +20,20 @@ module Cattri
   # Class attributes are stored internally as `Cattri::Attribute` instances and
   # values are memoized using class-level instance variables.
   module ClassAttributes
-    # Defines a class-level attribute with optional default, coercion, and reader access.
+    # Defines one or more class-level attributes with optional default, coercion, and reader access.
     #
-    # @param name [Symbol] the attribute name
+    # This method supports defining multiple attributes at once, provided they share the same options.
+    # If a block is given, only one attribute may be defined to avoid ambiguity.
+    #
+    # @example Define multiple attributes with shared options
+    #   class_attribute :foo, :bar, default: 42
+    #
+    # @example Define a single attribute with a coercion block
+    #   class_attribute :path do |val|
+    #     Pathname(val)
+    #   end
+    #
+    # @param names [Array<Symbol | String>] the names of the attributes to define
     # @param options [Hash] additional attribute options
     # @option options [Object, Proc] :default the default value or lambda
     # @option options [Boolean] :readonly whether the attribute is read-only
@@ -32,31 +43,59 @@ module Cattri
     # @raise [Cattri::AttributeError] or its subclasses, including `Cattri::AttributeDefinedError` or
     #   `Cattri::AttributeDefinitionError` if defining the attribute fails (e.g., if the attribute is
     #    already defined or an error occurs while defining methods)
-    def class_attribute(name, **options, &block)
-      options[:access] ||= __cattri_visibility
-      attribute = Cattri::Attribute.new(name, :class, options, block)
+    # @return [void]
+    def class_attribute(*names, **options, &block)
+      raise Cattri::AmbiguousBlockError if names.size > 1 && block_given?
 
-      raise Cattri::AttributeDefinedError, attribute if class_attribute_defined?(attribute.name)
-
-      begin
-        __cattri_class_attributes[name] = attribute
-
-        Cattri::AttributeDefiner.define_callable_accessor(attribute, context)
-        Cattri::AttributeDefiner.define_instance_level_reader(attribute, context) if attribute[:instance_reader]
-      rescue StandardError => e
-        raise Cattri::AttributeDefinitionError.new(self, attribute, e)
-      end
+      names.each { |name| define_class_attribute(name, options, block) }
     end
 
     # Defines a read-only class attribute.
     #
     # Equivalent to calling `class_attribute(name, readonly: true, ...)`
     #
-    # @param name [Symbol]
-    # @param options [Hash]
+    # @param names [Array<Symbol | String>] the names of the attributes to define
+    # @param options [Hash] additional attribute options
+    # @option options [Object, Proc] :default the default value or lambda
+    # @option options [Boolean] :readonly whether the attribute is read-only
+    # @option options [Boolean] :instance_reader whether to define an instance-level reader (default: true)
+    # @option options [Symbol] :access visibility level (:public, :protected, :private)
+    # @raise [Cattri::AttributeError] or its subclasses, including `Cattri::AttributeDefinedError` or
+    #   `Cattri::AttributeDefinitionError` if defining the attribute fails (e.g., if the attribute is
+    #    already defined or an error occurs while defining methods)
     # @return [void]
-    def class_attribute_reader(name, **options)
-      class_attribute(name, readonly: true, **options)
+    def class_attribute_reader(*names, **options)
+      class_attribute(*names, **options, readonly: true)
+    end
+
+    # Updates the setter behavior of an existing class-level attribute.
+    #
+    # This allows coercion logic to be defined or overridden after the attribute
+    # has been declared using `cattr`, as long as the writer method exists.
+    #
+    # @example Add coercion to an existing attribute
+    #   cattr :format
+    #   cattr_setter :format do |val|
+    #     val.to_s.downcase.to_sym
+    #   end
+    #
+    # @param name [Symbol, String] the name of the attribute
+    # @yieldparam value [Object] the value passed to the setter
+    # @yieldreturn [Object] the coerced value to be assigned
+    # @raise [Cattri::AttributeNotDefinedError] if the attribute is not defined or the writer method does not exist
+    # @raise [Cattri::AttributeDefinitionError] if method redefinition fails
+    # @return [void]
+    def class_attribute_setter(name, &block)
+      name = name.to_sym
+      attribute = __cattri_class_attributes[name]
+      puts "<<< #{attribute} = #{name}>"
+
+      if attribute.nil? || !context.method_defined?(:"#{name}=")
+        raise Cattri::AttributeNotDefinedError.new(:class, name)
+      end
+
+      attribute.instance_variable_set(:@setter, attribute.send(:normalize_setter, block))
+      Cattri::AttributeDefiner.define_writer!(attribute, context)
     end
 
     # Returns a list of defined class attribute names.
@@ -115,6 +154,36 @@ module Cattri
     alias cattr_definition class_attribute_definition
 
     private
+
+    # Defines a single class-level attribute.
+    #
+    # This is the internal implementation used by {.class_attribute} and its aliases.
+    # It constructs a `Cattri::Attribute`, registers it, and defines the necessary
+    # class and instance methods.
+    #
+    # @param name [Symbol] the name of the attribute to define
+    # @param options [Hash] additional attribute options (e.g., :default, :readonly)
+    # @param block [Proc, nil] an optional setter block for coercion
+    #
+    # @raise [Cattri::AttributeDefinedError] if the attribute has already been defined
+    # @raise [Cattri::AttributeDefinitionError] if method definition fails
+    #
+    # @return [void]
+    def define_class_attribute(name, options, block) # rubocop:disable Metrics/AbcSize
+      options[:access] ||= __cattri_visibility
+      attribute = Cattri::Attribute.new(name, :class, options, block)
+
+      raise Cattri::AttributeDefinedError.new(:class, name) if class_attribute_defined?(attribute.name)
+
+      begin
+        __cattri_class_attributes[name] = attribute
+
+        Cattri::AttributeDefiner.define_callable_accessor(attribute, context)
+        Cattri::AttributeDefiner.define_instance_level_reader(attribute, context) if attribute[:instance_reader]
+      rescue StandardError => e
+        raise Cattri::AttributeDefinitionError.new(self, attribute, e)
+      end
+    end
 
     # Internal registry of defined class-level attributes.
     #

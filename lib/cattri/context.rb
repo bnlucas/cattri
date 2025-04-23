@@ -63,11 +63,27 @@ module Cattri
       name = (name || attribute.name).to_sym
       return if method_defined?(name)
 
+      define_method!(attribute, name: name, &block)
+    end
+
+    # Defines a method on the target class or singleton class, regardless of whether it already exists.
+    #
+    # This bypasses any checks for prior definition and forcibly installs the method using `define_method`.
+    # The method will be assigned visibility based on the attribute's `:access` setting.
+    #
+    # Used internally by attribute definers to (re)define writers, readers, or callables.
+    #
+    # @param attribute [Cattri::Attribute] the attribute whose context and access rules apply
+    # @param name [Symbol, nil] the method name to define (defaults to attribute name)
+    # @yield the method body to define
+    # @raise [Cattri::AttributeDefinitionError] if method definition fails
+    # @return [void]
+    def define_method!(attribute, name: nil, &block)
       target = target_for(attribute)
 
       begin
         target.define_method(name, &block)
-        @defined_methods << name
+        @defined_methods << name unless method_defined?(name)
         apply_access(name, attribute)
       rescue StandardError => e
         raise Cattri::AttributeDefinitionError.new(target, attribute, e)
