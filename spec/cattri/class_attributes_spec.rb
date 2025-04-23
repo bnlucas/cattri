@@ -128,6 +128,41 @@ RSpec.describe Cattri::ClassAttributes do
     end
   end
 
+  describe ".class_attribute_setter / .cattr_setter" do
+    it "replaces the setter for an existing attribute" do
+      test_class.class_attribute_setter(:items) do |val|
+        puts "<<< #{val.inspect} >>>"
+        Array(val).map(&:to_sym)
+      end
+
+      subject.items = %w[a b c]
+
+      expect(subject.items).to eq(%i[a b c])
+    end
+
+    it "updates the callable form as well" do
+      test_class.class_attribute_setter(:items) do |*val|
+        Array(val).reverse
+      end
+
+      subject.items 1, 2, 3
+
+      expect(subject.items).to eq([3, 2, 1])
+    end
+
+    it "raises AttributeNotDefinedError if the attribute is not defined" do
+      expect do
+        test_class.class_attribute_setter(:undefined) { |v| v }
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :undefined has not been defined/)
+    end
+
+    it "raises AttributeNotDefinedError if the writer method does not exist" do
+      expect do
+        test_class.class_attribute_setter(:readonly) { |v| v }
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :readonly has not been defined/)
+    end
+  end
+
   describe ".class_attributes / .cattrs" do
     it "returns all defined class attributes" do
       expect(subject.class_attributes).to eq(%i[items map readonly no_instance_access normalized_symbol])

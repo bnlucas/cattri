@@ -92,6 +92,33 @@ module Cattri
         instance_attribute(*names, **options.merge(reader: false), &block)
       end
 
+      # Updates the setter behavior of an existing instance-level attribute.
+      #
+      # This allows coercion logic to be defined or overridden after the attribute
+      # has been declared using `iattr`, as long as the writer method exists.
+      #
+      # @example Add coercion to an existing attribute
+      #   iattr :format
+      #   iattr_setter :format do |val|
+      #     val.to_s.downcase.to_sym
+      #   end
+      #
+      # @param name [Symbol, String] the name of the attribute
+      # @yieldparam value [Object] the value passed to the setter
+      # @yieldreturn [Object] the coerced value to be assigned
+      # @raise [Cattri::AttributeNotDefinedError] if the attribute is not defined or the writer method does not exist
+      # @raise [Cattri::AttributeDefinitionError] if method redefinition fails
+      # @return [void]
+      def instance_attribute_setter(name, &block)
+        attribute = __cattri_instance_attributes[name.to_sym]
+
+        raise Cattri::AttributeNotDefinedError.new(:instance, name) if attribute.nil?
+        raise Cattri::AttributeError, "Cannot define setter for readonly attribute :#{name}" unless attribute[:writer]
+
+        attribute.instance_variable_set(:@setter, attribute.send(:normalize_setter, block))
+        Cattri::AttributeDefiner.define_writer!(attribute, context)
+      end
+
       # Returns a list of defined instance-level attribute names.
       #
       # @return [Array<Symbol>]
@@ -131,6 +158,10 @@ module Cattri
       #   Alias for {#instance_attribute_writer}
       alias iattr_writer instance_attribute_writer
 
+      # @!method iattr_setter(name, &block)
+      #   Alias for {#instance_attribute_setter}
+      alias iattr_setter instance_attribute_setter
+
       # @!method iattrs
       #   Alias for {#instance_attributes}
       alias iattrs instance_attributes
@@ -163,7 +194,7 @@ module Cattri
         options[:access] ||= __cattri_visibility
         attribute = Cattri::Attribute.new(name, :instance, options, block)
 
-        raise Cattri::AttributeDefinedError, attribute if instance_attribute_defined?(attribute.name)
+        raise Cattri::AttributeDefinedError.new(:instance, name) if instance_attribute_defined?(attribute.name)
 
         begin
           __cattri_instance_attributes[name.to_sym] = attribute

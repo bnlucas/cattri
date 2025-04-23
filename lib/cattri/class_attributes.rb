@@ -68,6 +68,36 @@ module Cattri
       class_attribute(*names, **options, readonly: true)
     end
 
+    # Updates the setter behavior of an existing class-level attribute.
+    #
+    # This allows coercion logic to be defined or overridden after the attribute
+    # has been declared using `cattr`, as long as the writer method exists.
+    #
+    # @example Add coercion to an existing attribute
+    #   cattr :format
+    #   cattr_setter :format do |val|
+    #     val.to_s.downcase.to_sym
+    #   end
+    #
+    # @param name [Symbol, String] the name of the attribute
+    # @yieldparam value [Object] the value passed to the setter
+    # @yieldreturn [Object] the coerced value to be assigned
+    # @raise [Cattri::AttributeNotDefinedError] if the attribute is not defined or the writer method does not exist
+    # @raise [Cattri::AttributeDefinitionError] if method redefinition fails
+    # @return [void]
+    def class_attribute_setter(name, &block)
+      name = name.to_sym
+      attribute = __cattri_class_attributes[name]
+      puts "<<< #{attribute} = #{name}>"
+
+      if attribute.nil? || !context.method_defined?(:"#{name}=")
+        raise Cattri::AttributeNotDefinedError.new(:class, name)
+      end
+
+      attribute.instance_variable_set(:@setter, attribute.send(:normalize_setter, block))
+      Cattri::AttributeDefiner.define_writer!(attribute, context)
+    end
+
     # Returns a list of defined class attribute names.
     #
     # @return [Array<Symbol>]
@@ -139,11 +169,11 @@ module Cattri
     # @raise [Cattri::AttributeDefinitionError] if method definition fails
     #
     # @return [void]
-    def define_class_attribute(name, options, block)
+    def define_class_attribute(name, options, block) # rubocop:disable Metrics/AbcSize
       options[:access] ||= __cattri_visibility
       attribute = Cattri::Attribute.new(name, :class, options, block)
 
-      raise Cattri::AttributeDefinedError, attribute if class_attribute_defined?(attribute.name)
+      raise Cattri::AttributeDefinedError.new(:class, name) if class_attribute_defined?(attribute.name)
 
       begin
         __cattri_class_attributes[name] = attribute

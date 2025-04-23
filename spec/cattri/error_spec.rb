@@ -11,9 +11,19 @@ RSpec.describe Cattri::Error do
     let(:attribute) { instance_double(Cattri::Attribute, name: :foo, type: :class) }
 
     it "raises an error when an attribute is defined more than once" do
-      error = Cattri::AttributeDefinedError.new(attribute)
+      error = Cattri::AttributeDefinedError.new(attribute.type, attribute.name)
 
       expect(error.message).to eq("Class attribute :foo has already been defined")
+    end
+  end
+
+  describe "Cattri::AttributeNotDefinedError" do
+    let(:attribute) { instance_double(Cattri::Attribute, name: :foo, type: :class) }
+
+    it "raises an error when an attribute has not yet been defined" do
+      error = Cattri::AttributeNotDefinedError.new(attribute.type, attribute.name)
+
+      expect(error.message).to eq("Class attribute :foo has not been defined")
     end
   end
 

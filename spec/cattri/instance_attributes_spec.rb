@@ -120,6 +120,29 @@ RSpec.describe Cattri::InstanceAttributes do
     end
   end
 
+  describe ".instance_attribute_setter / .iattr_setter" do
+    it "replaces the setter for an existing attribute" do
+      test_class.instance_attribute_setter(:items) do |val|
+        Array(val).map(&:to_sym)
+      end
+
+      instance.items = %w[a b c]
+      expect(instance.items).to eq(%i[a b c])
+    end
+
+    it "raises AttributeNotDefinedError if the attribute is not defined" do
+      expect do
+        test_class.instance_attribute_setter(:unknown) { |v| v }
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Instance attribute :unknown has not been defined/)
+    end
+
+    it "raises AttributeDefinitionError if the attribute is readonly" do
+      expect do
+        test_class.instance_attribute_setter(:readonly) { |v| v }
+      end.to raise_error(Cattri::AttributeError, /Cannot define setter for readonly attribute :readonly/)
+    end
+  end
+
   describe ".instance_attributes / .iattrs" do
     it "returns all defined instance attributes" do
       expect(test_class.instance_attributes).to eq(%i[items readonly secret normalized_symbol])

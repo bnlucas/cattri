@@ -30,9 +30,31 @@ module Cattri
   #   rescue Cattri::AttributeDefinedError => e
   #     puts e.message
   class AttributeDefinedError < Cattri::AttributeError
-    # @param attribute [Cattri::Attribute] the conflicting attribute
-    def initialize(attribute)
-      super("#{attribute.type.capitalize} attribute :#{attribute.name} has already been defined")
+    # @param type [Symbol, String] either :class or :instance
+    # @param name [Symbol, String] the name of the missing attribute
+    def initialize(type, name)
+      super("#{type.capitalize} attribute :#{name} has already been defined")
+    end
+  end
+
+  # Raised when attempting to access or modify an attribute that has not been defined.
+  #
+  # This applies to both class-level and instance-level attributes.
+  # It is typically raised when calling `.class_attribute_setter` or `.instance_attribute_setter`
+  # on a name that does not exist or lacks the expected method (e.g., writer).
+  #
+  # @example
+  #   raise Cattri::AttributeNotDefinedError.new(:class, :foo)
+  #   # => Class attribute :foo has not been defined
+  #
+  # @example
+  #   rescue Cattri::AttributeNotDefinedError => e
+  #     puts e.message
+  class AttributeNotDefinedError < Cattri::AttributeError
+    # @param type [Symbol, String] either :class or :instance
+    # @param name [Symbol, String] the name of the missing attribute
+    def initialize(type, name)
+      super("#{type.capitalize} attribute :#{name} has not been defined")
     end
   end
 
