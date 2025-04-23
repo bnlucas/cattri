@@ -74,6 +74,23 @@ RSpec.describe Cattri::ClassAttributes do
       expect(instance).not_to respond_to(:no_instance_access)
     end
 
+    it "defines a predicate method" do
+      subject.cattr :with_predicate, default: "123", predicate: true
+
+      expect(subject).to respond_to(:with_predicate)
+      expect(subject).to respond_to(:with_predicate?)
+      expect(subject.with_predicate?).to eq(true)
+
+      subject.with_predicate = nil
+      expect(subject.with_predicate?).to eq(false)
+    end
+
+    it "raises an AttributeError when a predicate (ends_with?('?')) attribute is defined" do
+      expect do
+        test_class.cattr :predicate?, default: "123"
+      end.to raise_error(Cattri::AttributeError, /names ending in '\?' are not allowed/)
+    end
+
     it "raises an AttributeDefinedError if the attribute is already defined" do
       test_class.cattr :foo, default: 42
 
@@ -160,6 +177,23 @@ RSpec.describe Cattri::ClassAttributes do
       expect do
         test_class.class_attribute_setter(:readonly) { |v| v }
       end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :readonly has not been defined/)
+    end
+  end
+
+  describe ".class_attribute_alias / .cattr_alias" do
+    it "defines an alias method" do
+      test_class.cattr :original, default: [1, 2, 3]
+      test_class.cattr_alias :original_alias, :original
+
+      expect(subject).to respond_to(:original)
+      expect(subject).to respond_to(:original_alias)
+      expect(subject.original_alias).to eq(subject.original)
+    end
+
+    it "raises AttributeNotDefinedError when the original method is not defined" do
+      expect {
+        test_class.cattr_alias :alias_method, :unknown
+      }.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :unknown has not been defined/)
     end
   end
 

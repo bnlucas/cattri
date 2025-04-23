@@ -39,6 +39,8 @@ module Cattri
     # @option options [Boolean] :readonly whether the attribute is read-only
     # @option options [Boolean] :instance_reader whether to define an instance-level reader (default: true)
     # @option options [Symbol] :access visibility level (:public, :protected, :private)
+    # @option options [Boolean] :predicate whether to define a predicate-style alias method
+    #   (e.g., `foo?`) for the attribute
     # @yieldparam value [Object] an optional custom setter block
     # @raise [Cattri::AttributeError] or its subclasses, including `Cattri::AttributeDefinedError` or
     #   `Cattri::AttributeDefinitionError` if defining the attribute fails (e.g., if the attribute is
@@ -47,7 +49,15 @@ module Cattri
     def class_attribute(*names, **options, &block)
       raise Cattri::AmbiguousBlockError if names.size > 1 && block_given?
 
-      names.each { |name| define_class_attribute(name, options, block) }
+      names.each do |name|
+        if name.end_with?("?")
+          raise Cattri::AttributeError,
+                "Attribute names ending in '?' are not allowed. Use `predicate: true` or `cattr_alias` instead."
+
+        end
+
+        define_class_attribute(name, options, block)
+      end
     end
 
     # Defines a read-only class attribute.
@@ -60,6 +70,8 @@ module Cattri
     # @option options [Boolean] :readonly whether the attribute is read-only
     # @option options [Boolean] :instance_reader whether to define an instance-level reader (default: true)
     # @option options [Symbol] :access visibility level (:public, :protected, :private)
+    # @option options [Boolean] :predicate whether to define a predicate-style alias method
+    #   (e.g., `foo?`) for the attribute
     # @raise [Cattri::AttributeError] or its subclasses, including `Cattri::AttributeDefinedError` or
     #   `Cattri::AttributeDefinitionError` if defining the attribute fails (e.g., if the attribute is
     #    already defined or an error occurs while defining methods)
@@ -98,11 +110,33 @@ module Cattri
       Cattri::AttributeDefiner.define_writer!(attribute, context)
     end
 
+    # Defines an alias method for an existing class-level attribute.
+    #
+    # This does **not** register a new attribute; it simply defines a method
+    # (e.g., a predicate-style alias like `foo?`) that delegates to an existing one.
+    #
+    # The alias method inherits the visibility of the original attribute.
+    #
+    # @param alias_name [Symbol, String] the new method name (e.g., `:foo?`)
+    # @param original [Symbol, String] the name of the existing attribute to delegate to (e.g., `:foo`)
+    # @raise [Cattri::AttributeNotDefinedError] if the original attribute is not defined
+    # @return [void]
+    def class_attribute_alias(alias_name, original)
+      attribute = __cattri_class_attributes[original.to_sym]
+      raise Cattri::AttributeNotDefinedError.new(:class, original) if attribute.nil?
+
+      context.define_method(attribute, name: alias_name) { public_send(original) }
+    end
+
     # Returns a list of defined class attribute names.
     #
     # @return [Array<Symbol>]
     def class_attributes
-      __cattri_class_attributes.keys
+      ([self] + ancestors + singleton_class.included_modules)
+        .uniq
+        .select { |mod| mod.respond_to?(:__cattri_class_attributes, true) }
+        .flat_map { |mod| mod.send(:__cattri_class_attributes).keys }
+        .uniq
     end
 
     # Checks whether a class attribute has been defined.
@@ -135,6 +169,16 @@ module Cattri
     #   Alias for {.class_attribute_reader}
     #   @see #class_attribute_reader
     alias cattr_reader class_attribute_reader
+
+    # @!method cattr_setter(name, **options)
+    #   Alias for {.class_attribute_setter}
+    #   @see #class_attribute_setter
+    alias cattr_setter class_attribute_setter
+
+    # @!method cattr_alias(name, **options)
+    #   Alias for {.class_attribute_alias}
+    #   @see #class_attribute_alias
+    alias cattr_alias class_attribute_alias
 
     # @!method cattrs
     #   Alias for {.class_attributes}
@@ -183,6 +227,8 @@ module Cattri
       rescue StandardError => e
         raise Cattri::AttributeDefinitionError.new(self, attribute, e)
       end
+
+      context.define_method(attribute, name: :"#{name}?") { !!send(attribute.name) } if options[:predicate]
     end
 
     # Internal registry of defined class-level attributes.
