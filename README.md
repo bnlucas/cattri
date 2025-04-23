@@ -43,12 +43,14 @@ class Config
   include Cattri          # exposes `cattr` & `iattr`
 
   # -- class‑level ----------------------------------
-  cattr :enabled,  default: true
-  cattr :timeout,  default: -> { 5.0 }, instance_reader: false
+  cattr :flag_a, :flag_b, default: true
+  cattr :enabled,         default: true
+  cattr :timeout,         default: -> { 5.0 }, instance_reader: false
 
   # -- instance‑level -------------------------------
-  iattr :name,     default: "anonymous"
-  iattr :age,      default: 0 do |val|                 # coercion block
+  iattr :item_a, :item_b, default: true
+  iattr :name,            default: "anonymous"
+  iattr :age,             default: 0 do |val|                 # coercion block
     Integer(val)
   end
 end
@@ -92,6 +94,48 @@ Both forms accept:
 | `instance_reader:` | Expose class attribute as instance reader (default: **true**). |
 
 If you pass a block, it’s treated as a **coercion setter** and receives the incoming value.
+
+---
+
+## Post-definition coercion with `*_setter`
+
+If you define multiple attributes at once, you can't provide a coercion block inline:
+
+```ruby
+cattr :foo, :bar, default: nil      # ❌ cannot use block here
+```
+
+Instead, define them first, then apply a coercion later using:
+
+- `cattr_setter` for class attributes
+- `iattr_setter` for instance attributes
+
+These allow you to attach or override the setter logic after the fact:
+
+```ruby
+class Config
+  include Cattri
+
+  cattr :log_level
+  cattr_setter :log_level do |val|
+    val.to_s.downcase.to_sym
+  end
+
+  iattr_writer :token
+  iattr_setter :token do |val|
+    val.strip
+  end
+end
+```
+
+Coercion is only applied when the attribute is written (via `=` or callable form), not when read.
+
+Attempting to use `*_setter` on an undefined attribute or one without a writer will raise:
+
+- `Cattri::AttributeNotDefinedError` – the attribute doesn't exist or wasn't fully defined
+- `Cattri::AttributeDefinitionError` – the attribute is marked as readonly
+
+These APIs ensure your DSL stays consistent and extensible, even when bulk-declaring attributes up front.
 
 ---
 
