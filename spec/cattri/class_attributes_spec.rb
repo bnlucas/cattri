@@ -74,6 +74,38 @@ RSpec.describe Cattri::ClassAttributes do
       expect(instance).not_to respond_to(:no_instance_access)
     end
 
+    it "defines a predicate method" do
+      subject.cattr :with_predicate, default: "123", predicate: true
+
+      expect(subject).to respond_to(:with_predicate)
+      expect(subject).to respond_to(:with_predicate?)
+      expect(subject.with_predicate?).to eq(true)
+
+      subject.with_predicate = nil
+      expect(subject.with_predicate?).to eq(false)
+    end
+
+    it "defines an instance-level predicate proxy" do
+      subject.cattr :with_predicate, default: "123", predicate: true
+      instance = subject.new
+
+      expect(instance).to respond_to(:with_predicate?)
+      expect(instance.with_predicate?).to eq(true)
+    end
+
+    it "does not define an instance-level predicate proxy" do
+      subject.cattr :with_predicate, default: "123", predicate: true, instance_reader: false
+      instance = subject.new
+
+      expect(instance).not_to respond_to(:with_predicate?)
+    end
+
+    it "raises an AttributeError when a predicate (ends_with?('?')) attribute is defined" do
+      expect do
+        test_class.cattr :predicate?, default: "123"
+      end.to raise_error(Cattri::AttributeError, /names ending in '\?' are not allowed/)
+    end
+
     it "raises an AttributeDefinedError if the attribute is already defined" do
       test_class.cattr :foo, default: 42
 
@@ -163,6 +195,23 @@ RSpec.describe Cattri::ClassAttributes do
     end
   end
 
+  describe ".class_attribute_alias / .cattr_alias" do
+    it "defines an alias method" do
+      test_class.cattr :original, default: [1, 2, 3]
+      test_class.cattr_alias :original_alias, :original
+
+      expect(subject).to respond_to(:original)
+      expect(subject).to respond_to(:original_alias)
+      expect(subject.original_alias).to eq(subject.original)
+    end
+
+    it "raises AttributeNotDefinedError when the original method is not defined" do
+      expect do
+        test_class.cattr_alias :alias_method, :unknown
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :unknown has not been defined/)
+    end
+  end
+
   describe ".class_attributes / .cattrs" do
     it "returns all defined class attributes" do
       expect(subject.class_attributes).to eq(%i[items map readonly no_instance_access normalized_symbol])
@@ -229,6 +278,8 @@ RSpec.describe Cattri::ClassAttributes do
       %i[cattr class_attribute],
       %i[cattr_accessor class_attribute],
       %i[cattr_reader class_attribute_reader],
+      %i[cattr_setter class_attribute_setter],
+      %i[cattr_alias class_attribute_alias],
       %i[cattrs class_attributes],
       %i[cattr_defined? class_attribute_defined?],
       %i[cattr_definition class_attribute_definition]

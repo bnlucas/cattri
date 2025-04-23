@@ -47,6 +47,24 @@ RSpec.describe Cattri::InstanceAttributes do
       expect(instance.items).to eq([1, 2, 3])
     end
 
+    it "defines a predicate method" do
+      test_class.iattr :with_predicate, default: "123", predicate: true
+      instance = test_class.new
+
+      expect(instance).to respond_to(:with_predicate)
+      expect(instance).to respond_to(:with_predicate?)
+      expect(instance.with_predicate?).to eq(true)
+
+      instance.with_predicate = nil
+      expect(instance.with_predicate?).to eq(false)
+    end
+
+    it "raises an AttributeError when a predicate (ends_with?('?')) attribute is defined" do
+      expect do
+        test_class.iattr :predicate?, default: "123"
+      end.to raise_error(Cattri::AttributeError, /names ending in '\?' are not allowed/)
+    end
+
     it "raises an AttributeDefinedError if the attribute is already defined" do
       test_class.iattr :foo, default: 42
 
@@ -143,6 +161,24 @@ RSpec.describe Cattri::InstanceAttributes do
     end
   end
 
+  describe ".instance_attribute_alias / .iattr_alias" do
+    it "defines an alias method" do
+      test_class.iattr :original, default: [1, 2, 3]
+      test_class.iattr_alias :original_alias, :original
+      instance = test_class.new
+
+      expect(instance).to respond_to(:original)
+      expect(instance).to respond_to(:original_alias)
+      expect(instance.original_alias).to eq(instance.original)
+    end
+
+    it "raises AttributeNotDefinedError when the original method is not defined" do
+      expect do
+        test_class.iattr_alias :alias_method, :unknown
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Instance attribute :unknown has not been defined/)
+    end
+  end
+
   describe ".instance_attributes / .iattrs" do
     it "returns all defined instance attributes" do
       expect(test_class.instance_attributes).to eq(%i[items readonly secret normalized_symbol])
@@ -188,6 +224,8 @@ RSpec.describe Cattri::InstanceAttributes do
       %i[iattr_accessor instance_attribute],
       %i[iattr_reader instance_attribute_reader],
       %i[iattr_writer instance_attribute_writer],
+      %i[iattr_setter instance_attribute_setter],
+      %i[iattr_alias instance_attribute_alias],
       %i[iattrs instance_attributes],
       %i[iattr_defined? instance_attribute_defined?],
       %i[iattr_definition instance_attribute_definition]

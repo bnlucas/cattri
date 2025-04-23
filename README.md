@@ -44,12 +44,13 @@ class Config
 
   # -- class‑level ----------------------------------
   cattr :flag_a, :flag_b, default: true
-  cattr :enabled,         default: true
+  cattr :enabled,         default: true, predicate: true
   cattr :timeout,         default: -> { 5.0 }, instance_reader: false
 
   # -- instance‑level -------------------------------
   iattr :item_a, :item_b, default: true
   iattr :name,            default: "anonymous"
+  iattr_alias :username, :name
   iattr :age,             default: 0 do |val|                 # coercion block
     Integer(val)
   end
@@ -57,7 +58,9 @@ end
 
 Config.enabled        # => true
 Config.enabled = false
+Config.enabled?       # => false (created with predicate: true flag)
 Config.new.age = "42" # => 42
+Config.new.username   # proxy to Config.new.name
 ```
 
 ---
@@ -67,12 +70,14 @@ Config.new.age = "42" # => 42
 ### Class attributes (`cattr`)
 
 ```ruby
-cattr :log_level, default: :info,
-                  access:  :protected,     # respects current visibility by default
-                  readonly: false,
-                  instance_reader: true do |value|
-                    value.to_sym
-                  end
+cattr :log_level,
+      default: :info,
+      access:  :protected,     # respects current visibility by default
+      readonly: false,
+      predicate: true,         # defines #{name}? predicate method that respects visibility
+      instance_reader: true do |value|
+  value.to_sym
+end
 ```
 
 ### Instance attributes (`iattr`)
@@ -80,7 +85,8 @@ cattr :log_level, default: :info,
 ```ruby
 iattr :token, default: -> { SecureRandom.hex(8) },
               reader:  true,
-              writer:  false                  # read‑only
+              writer:  false,                  # read‑only
+              predicate: true
 ```
 
 Both forms accept:
@@ -92,6 +98,7 @@ Both forms accept:
 | `reader:` / `writer:` | Disable reader or writer for instance attributes. |
 | `readonly:` | Shorthand for class attributes (`writer` is always present). |
 | `instance_reader:` | Expose class attribute as instance reader (default: **true**). |
+| `predicate` | Define a `:name?` method that calls `!!send(name)`
 
 If you pass a block, it’s treated as a **coercion setter** and receives the incoming value.
 

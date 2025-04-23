@@ -47,11 +47,30 @@ module Cattri
       def define_instance_level_reader(attribute, context)
         return unless attribute.class_level?
 
-        context.target.define_method(attribute.name) do
+        define_instance_level_method(attribute, context) do
           self.class.__send__(attribute.name)
         end
 
         context.send(:apply_access, attribute.name, attribute)
+      end
+
+      # Defines an instance-level method for a class-level attribute.
+      #
+      # This is a shared utility for defining instance methods that delegate to class attributes,
+      # including both regular readers and predicate-style readers (`predicate: true`).
+      #
+      # Visibility is inherited from the attribute and applied to the defined method.
+      #
+      # @param attribute [Cattri::Attribute] the associated attribute metadata
+      # @param context [Cattri::Context] the context in which to define the method
+      # @param name [Symbol, nil] optional override for the method name (defaults to `attribute.name`)
+      # @yield the method body to define
+      # @return [void]
+      def define_instance_level_method(attribute, context, name: nil, &block)
+        name = (name || attribute.name).to_sym
+        context.target.define_method(name, &block)
+
+        context.send(:apply_access, name, attribute)
       end
 
       # Defines standard reader and writer methods for instance-level attributes.

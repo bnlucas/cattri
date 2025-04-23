@@ -23,13 +23,15 @@ module Cattri
     # Default options for class-level attributes.
     DEFAULT_CLASS_ATTRIBUTE_OPTIONS = {
       readonly: false,
-      instance_reader: true
+      instance_reader: true,
+      predicate: false
     }.freeze
 
     # Default options for instance-level attributes.
     DEFAULT_INSTANCE_ATTRIBUTE_OPTIONS = {
       reader: true,
-      writer: true
+      writer: true,
+      predicate: false
     }.freeze
 
     # @return [Symbol] the attribute name
