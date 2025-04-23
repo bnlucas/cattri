@@ -224,7 +224,7 @@ end
 * **ActiveSupport** extends the API but still relies on mutable class variables and offers no visibility control.
 * **Dry‑configurable** is robust yet heavyweight when you only need a handful of attributes outside a full config object.
 
-Cattri sits in the sweet spot: **micro‑sized (~200 LOC)**, dependency‑free, and purpose‑built for attribute declaration.
+Cattri sits in the sweet spot: **micro‑sized (~300 LOC)**, dependency‑free, and purpose‑built for attribute declaration.
 
 ---
 
