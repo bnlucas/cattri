@@ -206,9 +206,9 @@ RSpec.describe Cattri::ClassAttributes do
     end
 
     it "raises AttributeNotDefinedError when the original method is not defined" do
-      expect {
+      expect do
         test_class.cattr_alias :alias_method, :unknown
-      }.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :unknown has not been defined/)
+      end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :unknown has not been defined/)
     end
   end
 
@@ -278,6 +278,8 @@ RSpec.describe Cattri::ClassAttributes do
       %i[cattr class_attribute],
       %i[cattr_accessor class_attribute],
       %i[cattr_reader class_attribute_reader],
+      %i[cattr_setter class_attribute_setter],
+      %i[cattr_alias class_attribute_alias],
       %i[cattrs class_attributes],
       %i[cattr_defined? class_attribute_defined?],
       %i[cattr_definition class_attribute_definition]
