@@ -7,18 +7,24 @@ RSpec.describe Cattri::InstanceAttributes do
 
   let(:test_class) do
     Class.new do
-      extend Cattri::Visibility
-      include Cattri::InstanceAttributes
-      include Cattri::Introspection
+      include Cattri
+
+      with_cattri_introspection
 
       iattr :items, default: []
-      iattr_reader :readonly, default: true
+      final_iattr :finalized, "final"
+      readonly_iattr :readonly, true
       iattr_writer :secret
 
       iattr :normalized_symbol, default: :symbol do |value|
         value.to_s.downcase.to_sym
       end
     end
+  end
+
+  it "include Cattri::DefinitionContext" do
+    expect(test_class.singleton_class.included_modules).to include(Cattri::RegistryContext)
+    expect(test_class.singleton_class.private_method_defined?(:attribute_registry)).to be(true)
   end
 
   describe ".instance_attribute / .iattr" do
@@ -78,7 +84,8 @@ RSpec.describe Cattri::InstanceAttributes do
         include Cattri
       end
 
-      allow(Cattri::AttributeDefiner).to receive(:define_accessor).and_raise(StandardError, "method definition failed")
+      allow(Cattri::AttributeCompiler).to receive(:instance_accessor)
+        .and_raise(StandardError, "method definition failed")
 
       expect do
         test_class.iattr :bar, default: 10
@@ -92,7 +99,21 @@ RSpec.describe Cattri::InstanceAttributes do
     end
   end
 
-  describe ".instance_attribute_reader / .iattr_reader" do
+  describe ".final_class_attribute / .final_cattr" do
+    it "defines a reader" do
+      expect(instance).to respond_to(:finalized)
+    end
+
+    it "does not define a writer" do
+      expect(instance).not_to respond_to(:finalized=)
+    end
+
+    it "does not allow setting a readonly attribute" do
+      expect { instance.finalized = "fail" }.to raise_error(NoMethodError)
+    end
+  end
+
+  describe ".readonly_instance_attribute / .readonly_iattr / .iattr_reader" do
     it "defines a reader" do
       expect(instance).to respond_to(:readonly)
     end
@@ -103,15 +124,6 @@ RSpec.describe Cattri::InstanceAttributes do
 
     it "does not allow setting a readonly attribute" do
       expect { instance.readonly = "fail" }.to raise_error(NoMethodError)
-    end
-
-    it "defines multiple read-only attributes" do
-      test_class.iattr_reader :alpha, :beta, default: "readable"
-
-      expect(instance).to respond_to(:alpha)
-      expect(instance).to respond_to(:beta)
-      expect(instance).not_to respond_to(:alpha=)
-      expect(instance).not_to respond_to(:beta=)
     end
   end
 
@@ -136,6 +148,18 @@ RSpec.describe Cattri::InstanceAttributes do
       expect(instance).not_to respond_to(:x)
       expect(instance).not_to respond_to(:y)
     end
+
+    it "raises when trying to define a writer for a finalized attribute" do
+      expect do
+        test_class.iattr_writer :items, :finalized
+      end.to raise_error(Cattri::FinalizedAttributeError, /Instance attribute :finalized/)
+    end
+
+    it "raises when trying to define a writer for a readonly attribute" do
+      expect do
+        test_class.iattr_writer :items, :readonly
+      end.to raise_error(Cattri::ReadonlyAttributeError, /Instance attribute :readonly/)
+    end
   end
 
   describe ".instance_attribute_setter / .iattr_setter" do
@@ -152,12 +176,6 @@ RSpec.describe Cattri::InstanceAttributes do
       expect do
         test_class.instance_attribute_setter(:unknown) { |v| v }
       end.to raise_error(Cattri::AttributeNotDefinedError, /Instance attribute :unknown has not been defined/)
-    end
-
-    it "raises AttributeDefinitionError if the attribute is readonly" do
-      expect do
-        test_class.instance_attribute_setter(:readonly) { |v| v }
-      end.to raise_error(Cattri::AttributeError, /Cannot define setter for readonly attribute :readonly/)
     end
   end
 
@@ -181,7 +199,7 @@ RSpec.describe Cattri::InstanceAttributes do
 
   describe ".instance_attributes / .iattrs" do
     it "returns all defined instance attributes" do
-      expect(test_class.instance_attributes).to eq(%i[items readonly secret normalized_symbol])
+      expect(test_class.instance_attributes).to eq(%i[items finalized readonly secret normalized_symbol])
     end
   end
 
@@ -222,7 +240,9 @@ RSpec.describe Cattri::InstanceAttributes do
     [
       %i[iattr instance_attribute],
       %i[iattr_accessor instance_attribute],
-      %i[iattr_reader instance_attribute_reader],
+      %i[final_iattr final_instance_attribute],
+      %i[readonly_iattr readonly_instance_attribute],
+      %i[iattr_reader readonly_instance_attribute],
       %i[iattr_writer instance_attribute_writer],
       %i[iattr_setter instance_attribute_setter],
       %i[iattr_alias instance_attribute_alias],

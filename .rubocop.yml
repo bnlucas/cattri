@@ -5,11 +5,12 @@ AllCops:
 
 Style/Documentation:
   Exclude:
-    - spec/cattri/**/*.rb
+    - spec/**/*_spec.rb
 
 Style/DocumentationMethod:
+  Enabled: true
   Exclude:
-    - spec/cattri/**/*.rb
+    - spec/**/*_spec.rb
 
 Style/StringLiterals:
   Enabled: true

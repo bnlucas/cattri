@@ -1,3 +1,102 @@
+# Changelog
+
+## [0.2.0] - 2025-04-26
+
+### Major Changes
+
+- **Refactored core class: `Cattri::Context`**
+  - Centralized method and ivar management for attribute definitions.
+  - Handles scoping (class vs. instance), visibility, and method tracking.
+  - Ensures safe redefinition and clean inheritance behavior.
+
+- **New core class: `Cattri::AttributeRegistry`**
+  - Tracks attributes cleanly per class/module.
+  - Provides attribute lookup, duplication, redefinition, and mutation safety.
+
+- **New core class: `Cattri::AttributeCompiler`** (formerly `AttributeDefiner`)
+  - Compiles attributes into methods.
+  - Supports clean separation for class-level and instance-level method generation.
+  - Enforces attribute validation rules consistently.
+
+- **New core module: `Cattri::DeferredAttributes`**
+  - Defers attribute definitions when defining attributes in mixin modules.
+  ```ruby
+  module Options
+    include Cattri
+  
+    iattr :enabled
+    iattr :config, default: {}
+  end
+  
+  class MyClass
+    include Options
+    # iattrs from Options are defined on include
+  end
+  ```
+
+- **Attribute immutability support**
+  - Added `:final` option to attributes.
+    - Class attributes: `final` enforces `readonly: true`.
+    - Instance attributes: `final` enforces `writer: false`.
+    - `final` attributes cannot be written to and cannot be redefined or have new setters defined.
+    - `readonly` attributes cannot be written to, but can be redefined and have new setters defined.
+  - New errors:
+    - `Cattri::FinalizedAttributeError`
+    - `Cattri::ReadonlyAttributeError`
+
+- **Inheritance refactor**
+  - Attribute metadata and values are now duplicated and recompiled via `Context`.
+  - Prevents inherited attributes from accidentally sharing state or visibility.
+  - Fixes subtle bugs where subclassing could lead to accidental method conflicts.
+
+### New API Helpers
+
+- `final_class_attribute(name, value, **options)`
+  - `final_cattr(name, value, **options)`
+- `final_instance_attribute(name, value, **options)`
+  - `final_iattr(name, value, **options)`
+- `readonly_class_attribute(name, value, **options)`
+  - `readonly_cattr(name, value, **options)`
+- `readonly_instance_attribute(name, value, **options)`
+  - `readonly_iattr(name, value, **options)`
+
+These enforce `final` and/or `readonly` behavior and require a default value.
+
+### Behavior Changes
+
+- `readonly` and `final` attributes must now provide a default value at definition time.
+- Redefining methods from inherited attributes no longer fails improperly — method checks are scoped locally.
+- Writers for `readonly` or `final` attributes are now explicitly blocked with clear errors.
+- Default values for attributes are always normalized into procs internally (`default.call` pattern).
+
+### Testing and Coverage
+
+- Added full RSpec specs for:
+  - `Context`
+  - `AttributeRegistry`
+  - `AttributeCompiler`
+  - Error coverage (including new errors)
+- Branch coverage for all critical paths (including `final` and `readonly` guards).
+- Clean separation of integration and unit specs.
+
+### Internal Improvements
+
+- `normalize_target` now safely handles singleton classes without polluting ancestry.
+- All method generation uses `class_eval` consistently to maintain correct visibility scopes.
+- Method overwrites are tracked at the attribute level to avoid double-definitions.
+- Cleaner error messages when trying to overwrite protected methods without `force: true`.
+
+### Introspection helper
+
+- Added the `with_cattri_introspection` method to easily enable introspection as needed.
+  ```ruby
+  class Config
+    include Cattri
+  
+    with_cattri_introspection
+  end
+  ```
+
 ## [0.1.3] - 2025-04-22
 
 ### Added

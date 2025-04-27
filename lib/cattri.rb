@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "cattri/version"
-require_relative "cattri/visibility"
 require_relative "cattri/class_attributes"
+require_relative "cattri/registry_context"
 require_relative "cattri/instance_attributes"
 require_relative "cattri/introspection"
+require_relative "cattri/visibility"
+require_relative "cattri/version"
 
 # The primary entry point for the Cattri gem.
 #
@@ -17,10 +18,15 @@ require_relative "cattri/introspection"
 # - `Cattri::InstanceAttributes` (for instance-level configuration)
 # - `Cattri::Visibility` (for default access control)
 #
-# It also installs a custom `.inherited` hook to ensure that subclassed classes
-# receive deep copies of attribute metadata and current values.
+# It also installs a custom `.inherited` hook to ensure subclassed classes receive
+# deep copies of attribute definitions *and* current backing values. This guarantees
+# isolation and safe mutation across inheritance hierarchies.
 #
-# Note: The `Cattri::Introspection` module must be included manually if needed.
+# All attribute metadata is managed via `Cattri::AttributeRegistry`, accessible
+# internally via the `attribute_registry` method (provided by `Cattri::RegistryContext`).
+#
+# Note: The `Cattri::Introspection` module must be included manually if introspection
+# helpers are desired in development or test environments.
 #
 # @example Using both class and instance attributes
 #   class Config
@@ -41,16 +47,33 @@ module Cattri
   # @param base [Class, Module] the receiving class or module
   # @return [void]
   def self.included(base)
+    base.include(Cattri::RegistryContext)
+    base.singleton_class.include(Cattri::RegistryContext)
+
     base.extend(Cattri::Visibility)
     base.extend(Cattri::ClassAttributes)
     base.include(Cattri::InstanceAttributes)
+    base.extend(ClassMethods)
 
-    base.singleton_class.define_method(:inherited) do |subclass|
-      super(subclass) if defined?(super)
+    base_singleton = base.singleton_class
+    existing_inherited = base_singleton.instance_method(:inherited) rescue nil # rubocop:disable Style/RescueModifier
 
-      %i[class instance].each do |type|
-        Cattri.send(:copy_attributes_to, self, subclass, type)
+    base_singleton.define_method(:inherited) do |subclass|
+      # :nocov:
+      existing_inherited&.bind(self)&.call(subclass)
+      # :nocov:
+
+      %i[class instance].each do |level|
+        Cattri.send(:copy_attributes_to, self, subclass, level)
       end
+    end
+  end
+
+  # Class-level methods
+  module ClassMethods
+    # Enables introspection support by including Cattri::Introspection.
+    def with_cattri_introspection
+      include(Cattri::Introspection)
     end
   end
 
@@ -64,19 +87,18 @@ module Cattri
     #
     # @param origin [Class] the parent class
     # @param subclass [Class] the child class inheriting the attributes
-    # @param type [Symbol] either `:class` or `:instance`
+    # @param level [Symbol] either `:class` or `:instance`
     # @return [void]
     # @raise [Cattri::AttributeError] if an ivar copy operation fails
-    def copy_attributes_to(origin, subclass, type)
-      ivar = :"@__cattri_#{type}_attributes"
-      attributes = origin.instance_variable_get(ivar) || {}
-
-      subclass_attributes = attributes.transform_values do |attribute|
-        copy_ivar_to(origin, subclass, attribute)
-        attribute.dup
+    def copy_attributes_to(origin, subclass, level)
+      origin_registry = origin.send(:attribute_registry).defined_attributes(level)
+      copied_attributes = origin_registry.values.map do |attribute|
+        copy_attribute_to(origin, subclass, attribute)
       end
 
-      subclass.instance_variable_set(ivar, subclass_attributes)
+      subclass_context = Cattri::Context.new(subclass)
+      subclass_registry = subclass.send(:attribute_registry)
+      subclass_registry.send(:apply_copied_attributes, *copied_attributes, target_context: subclass_context)
     end
 
     # Duplicates the current value of an attribute's backing ivar to the subclass.
@@ -88,9 +110,12 @@ module Cattri
     # @param attribute [Cattri::Attribute]
     # @return [void]
     # @raise [Cattri::AttributeError] if the value cannot be safely duplicated
-    def copy_ivar_to(origin, subclass, attribute)
+    def copy_attribute_to(origin, subclass, attribute)
+      copied_attribute = attribute.dup.freeze
       value = duplicate_value(origin, attribute)
-      subclass.instance_variable_set(attribute.ivar, value)
+      subclass.instance_variable_set(copied_attribute.ivar, value)
+
+      copied_attribute
     end
 
     # Attempts to duplicate the value of an attribute's backing ivar.
@@ -109,7 +134,6 @@ module Cattri
       begin
         value.dup
       rescue TypeError, FrozenError
-        puts "HERE"
         value
       end
     rescue StandardError => e

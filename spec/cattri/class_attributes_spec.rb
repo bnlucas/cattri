@@ -12,7 +12,8 @@ RSpec.describe Cattri::ClassAttributes do
 
       cattr :items, default: []
       cattr :map, default: {}
-      cattr_reader :readonly, default: "static"
+      final_cattr :finalized, "final"
+      readonly_cattr :readonly, "static"
       cattr :no_instance_access, default: true, instance_reader: false
 
       cattr :normalized_symbol, default: :symbol do |value|
@@ -115,8 +116,7 @@ RSpec.describe Cattri::ClassAttributes do
     end
 
     it "raises an AttributeDefinitionError if a method definition fails" do
-      allow(Cattri::AttributeDefiner).to receive(:define_callable_accessor).and_raise(StandardError,
-                                                                                      "method definition failed")
+      allow(Cattri::AttributeCompiler).to receive(:class_accessor).and_raise(StandardError, "method definition failed")
 
       expect do
         test_class.cattr :bar, default: 10
@@ -130,7 +130,27 @@ RSpec.describe Cattri::ClassAttributes do
     end
   end
 
-  describe ".class_attribute_reader / .cattr_reader" do
+  describe ".final_class_attribute / .final_cattr" do
+    it "defines a reader" do
+      expect(subject).to respond_to(:finalized)
+    end
+
+    it "does not define a writer" do
+      expect(subject).not_to respond_to(:finalized=)
+    end
+
+    it "does not allow setting a readonly attribute" do
+      expect { subject.finalized = "fail" }.to raise_error(NoMethodError)
+    end
+
+    it "defines a readonly accessor" do
+      expect do
+        subject.finalized "finalize"
+      end.to raise_error(Cattri::FinalizedAttributeError, /Class attribute :finalized/)
+    end
+  end
+
+  describe ".readonly_class_attribute / .readonly_cattr / .cattr_reader" do
     it "defines a reader" do
       expect(subject).to respond_to(:readonly)
     end
@@ -144,26 +164,15 @@ RSpec.describe Cattri::ClassAttributes do
     end
 
     it "defines a readonly accessor" do
-      subject.readonly "readonly"
-
-      expect(subject.readonly).to eq("static")
-      expect(subject).not_to have_received(:instance_variable_set).with(:@readonly, "readonly")
-    end
-
-    it "defines multiple readonly attributes at once" do
-      test_class.class_attribute_reader :a, :b, default: "locked"
-
-      expect(subject.a).to eq("locked")
-      expect(subject.b).to eq("locked")
-      expect(subject).not_to respond_to(:a=)
-      expect(subject).not_to respond_to(:b=)
+      expect do
+        subject.readonly "readonly"
+      end.to raise_error(Cattri::ReadonlyAttributeError, /Class attribute :readonly/)
     end
   end
 
   describe ".class_attribute_setter / .cattr_setter" do
     it "replaces the setter for an existing attribute" do
       test_class.class_attribute_setter(:items) do |val|
-        puts "<<< #{val.inspect} >>>"
         Array(val).map(&:to_sym)
       end
 
@@ -214,7 +223,7 @@ RSpec.describe Cattri::ClassAttributes do
 
   describe ".class_attributes / .cattrs" do
     it "returns all defined class attributes" do
-      expect(subject.class_attributes).to eq(%i[items map readonly no_instance_access normalized_symbol])
+      expect(subject.class_attributes).to eq(%i[items map finalized readonly no_instance_access normalized_symbol])
     end
   end
 
@@ -277,7 +286,9 @@ RSpec.describe Cattri::ClassAttributes do
     [
       %i[cattr class_attribute],
       %i[cattr_accessor class_attribute],
-      %i[cattr_reader class_attribute_reader],
+      %i[final_cattr final_class_attribute],
+      %i[readonly_cattr readonly_class_attribute],
+      %i[cattr_reader readonly_class_attribute],
       %i[cattr_setter class_attribute_setter],
       %i[cattr_alias class_attribute_alias],
       %i[cattrs class_attributes],

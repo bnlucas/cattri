@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "attribute_definer"
+require_relative "attribute_compiler"
 
 module Cattri
   # Mixin that provides support for defining instance-level attributes.
@@ -26,64 +26,36 @@ module Cattri
 
     # Defines instance-level attribute DSL methods.
     module ClassMethods
-      # Defines one or more instance-level attributes with optional default and coercion.
+      # Defines one or more instance-level attributes with optional default, coercion, and access control.
       #
       # This method supports defining multiple attributes at once, provided they share the same options.
       # If a block is given, only one attribute may be defined to avoid ambiguity.
       #
       # @example Define multiple attributes with shared defaults
-      #   iattr :foo, :bar, default: []
+      #   instance_attribute :foo, :bar, default: []
       #
       # @example Define a single attribute with coercion
-      #   iattr :level do |val|
+      #   instance_attribute :level do |val|
       #     Integer(val)
       #   end
       #
-      # @param names [Array<Symbol | String>] the names of the attributes to define
-      # @param options [Hash] additional options like `:default`, `:reader`, `:writer`
-      # @option options [Object, Proc] :default the default value or lambda
-      # @option options [Boolean] :reader whether to define a reader method (default: true)
-      # @option options [Boolean] :writer whether to define a writer method (default: true)
-      # @option options [Symbol] :access method visibility (:public, :protected, :private)
-      # @option options [Boolean] :predicate whether to define a predicate-style alias method
-      #   (e.g., `foo?`) for the attribute
-      # @yieldparam value [Object] optional custom coercion logic for the setter
-      # @raise [Cattri::AttributeError] or its subclasses, including `Cattri::AttributeDefinedError` or
-      #   `Cattri::AttributeDefinitionError` if defining the attribute fails (e.g., if the attribute is
-      #    already defined or an error occurs while defining methods)
+      # @param names [Array<Symbol, String>] the names of the attributes to define
+      # @param options [Hash] additional attribute configuration
+      # @option options [String, Symbol, nil] :access the attribute's access visibility, defaults to `:public`
+      # @option options [String, Symbol, nil] :ivar the backing instance variable name (defaults to `:@name`)
+      # @option options [Object, Proc, nil] :default a static value or block for lazy default evaluation
+      # @option options [Boolean, nil] :final whether the attribute is final
+      # @option options [Boolean, nil] :predicate whether to generate a predicate method (`attr?`)
+      # @option options [Boolean, nil] :force whether to forcibly overwrite existing methods if already defined
+      # @option options [Boolean, nil] :reader whether to generate a reader method (only applies to instance attributes)
+      # @option options [Boolean, nil] :writer whether to generate a writer method (only applies to instance attributes)
+      # @yieldparam value [Object] optional custom setter coercion logic
+      # @raise [Cattri::AttributeError] or its subclasses if defining the attribute fails
       # @return [void]
       def instance_attribute(*names, **options, &block)
         raise Cattri::AmbiguousBlockError if names.size > 1 && block_given?
 
-        names.each do |name|
-          if name.end_with?("?")
-            raise Cattri::AttributeError,
-                  "Attribute names ending in '?' are not allowed. Use `predicate: true` or `iattr_alias` instead."
-
-          end
-
-          define_instance_attribute(name, options, block)
-        end
-      end
-
-      # Defines a read-only instance-level attribute.
-      #
-      # Equivalent to `instance_attribute(..., writer: false)`
-      #
-      # @param names [Array<Symbol | String>] the names of the attributes to define
-      # @param options [Hash] additional options like `:default`, `:reader`, `:writer`
-      # @option options [Object, Proc] :default the default value or lambda
-      # @option options [Boolean] :reader whether to define a reader method (default: true)
-      # @option options [Symbol] :access method visibility (:public, :protected, :private)
-      # @option options [Boolean] :predicate whether to define a predicate-style alias method
-      #   (e.g., `foo?`) for the attribute
-      # @yieldparam value [Object] optional custom coercion logic for the setter
-      # @raise [Cattri::AttributeError] or its subclasses, including `Cattri::AttributeDefinedError` or
-      #   `Cattri::AttributeDefinitionError` if defining the attribute fails (e.g., if the attribute is
-      #    already defined or an error occurs while defining methods)
-      # @return [void]
-      def instance_attribute_reader(*names, **options)
-        instance_attribute(*names, **options, writer: false)
+        attribute_registry.define_instance_attributes(names, options: options, block: block)
       end
 
       # Defines a write-only instance-level attribute.
@@ -91,18 +63,83 @@ module Cattri
       # Equivalent to `instance_attribute(..., reader: false)`. The predicate: option is not allowed
       # when defining writer methods.
       #
-      # @param names [Array<Symbol | String>] the names of the attributes to define
-      # @param options [Hash] additional options like `:default`, `:reader`, `:writer`
-      # @option options [Object, Proc] :default the default value or lambda
-      # @option options [Boolean] :writer whether to define a writer method (default: true)
-      # @option options [Symbol] :access method visibility (:public, :protected, :private)
-      # @yieldparam value [Object] optional custom coercion logic for the setter
-      # @raise [Cattri::AttributeError] or its subclasses, including `Cattri::AttributeDefinedError` or
-      #   `Cattri::AttributeDefinitionError` if defining the attribute fails (e.g., if the attribute is
-      #    already defined or an error occurs while defining methods)
+      # @param name [Array<Symbol, String>] the names of the attributes to define
+      # @param value [Object, Proc, nil] a static value or block for lazy default evaluation
+      # @param options [Hash] additional attribute configuration
+      # @option options [String, Symbol, nil] :access the attribute's access visibility, defaults to `:public`
+      # @option options [String, Symbol, nil] :ivar the backing instance variable name (defaults to `:@name`)
+      # @option options [Boolean, nil] :predicate whether to generate a predicate method (`attr?`)
+      # @option options [Boolean, nil] :force whether to forcibly overwrite existing methods if already defined
+      # @raise [Cattri::AttributeError] or its subclasses if defining the attribute fails
+      # @return [void]
+      def final_instance_attribute(name, value, **options)
+        options = options.merge(default: value, final: true, reader: true, writer: false)
+        instance_attribute(name, **options)
+      end
+
+      # Defines a read-only instance-level attribute.
+      #
+      # Equivalent to `instance_attribute(..., writer: false)`
+      #
+      # @param name [Symbol, String] the name of the attribute to define
+      # @param value [Object, Proc, nil] a static value or block for lazy default evaluation
+      # @param options [Hash] additional attribute configuration
+      # @option options [String, Symbol, nil] :access the attribute's access visibility, defaults to `:public`
+      # @option options [String, Symbol, nil] :ivar the backing instance variable name (defaults to `:@name`)
+      # @option options [Boolean, nil] :final whether the attribute is final
+      # @option options [Boolean, nil] :predicate whether to generate a predicate method (`attr?`)
+      # @option options [Boolean, nil] :force whether to forcibly overwrite existing methods if already defined
+      # @raise [Cattri::AttributeError] or its subclasses if defining the attribute fails
+      # @return [void]
+      def readonly_instance_attribute(name, value, **options)
+        options = options.merge(default: value, reader: true, writer: false)
+        instance_attribute(name, **options)
+      end
+
+      # @param names [Array<Symbol, String>] the names of the attributes to define
+      # @param options [Hash] additional attribute configuration
+      # @option options [String, Symbol, nil] :access the attribute's access visibility, defaults to `:public`
+      # @option options [String, Symbol, nil] :ivar the backing instance variable name (defaults to `:@name`)
+      # @option options [Object, Proc, nil] :default a static value or block for lazy default evaluation
+      # @option options [Boolean, nil] :final whether the attribute is final
+      # @option options [Boolean, nil] :predicate whether to generate a predicate method (`attr?`)
+      # @option options [Boolean, nil] :force whether to forcibly overwrite existing methods if already defined
+      # @yieldparam value [Object] optional custom setter coercion logic
+      # @raise [Cattri::AttributeError] or its subclasses if defining the attribute fails
+      # @return [void]
+      def instance_attribute_reader(*names, **options, &_block)
+        warn "Cattri.instance_attribute_reader is deprecated, please use Cattri.readonly_instance_attribute instead"
+
+        default = options.delete(:default)
+        names.each do |name|
+          readonly_instance_attribute(name, default, **options)
+        end
+      end
+
+      # Defines a write-only instance-level attribute.
+      #
+      # Equivalent to `instance_attribute(..., reader: false)`. The predicate: option is not allowed
+      # when defining writer methods.
+      #
+      # @param names [Array<Symbol, String>] the names of the attributes to define
+      # @param options [Hash] additional attribute configuration
+      # @option options [String, Symbol, nil] :access the attribute's access visibility, defaults to `:public`
+      # @option options [String, Symbol, nil] :ivar the backing instance variable name (defaults to `:@name`)
+      # @option options [Object, Proc, nil] :default a static value or block for lazy default evaluation
+      # @option options [Boolean, nil] :final whether the attribute is final
+      # @option options [Boolean, nil] :force whether to forcibly overwrite existing methods if already defined
+      # @yieldparam value [Object] optional custom setter coercion logic
+      # @raise [Cattri::AttributeError] or its subclasses if defining the attribute fails
       # @return [void]
       def instance_attribute_writer(*names, **options, &block)
-        instance_attribute(*names, **options.merge(reader: false, predicate: false), &block)
+        names.each do |name|
+          if (attribute = attribute_registry.fetch_attribute(:instance, name))
+            attribute.guard_writable!
+          end
+        end
+
+        options = options.merge(reader: false, writer: true, predicate: false)
+        instance_attribute(*names, **options, &block)
       end
 
       # Updates the setter behavior of an existing instance-level attribute.
@@ -123,13 +160,8 @@ module Cattri
       # @raise [Cattri::AttributeDefinitionError] if method redefinition fails
       # @return [void]
       def instance_attribute_setter(name, &block)
-        attribute = __cattri_instance_attributes[name.to_sym]
-
-        raise Cattri::AttributeNotDefinedError.new(:instance, name) if attribute.nil?
-        raise Cattri::AttributeError, "Cannot define setter for readonly attribute :#{name}" unless attribute[:writer]
-
-        attribute.instance_variable_set(:@setter, attribute.send(:normalize_setter, block))
-        Cattri::AttributeDefiner.define_writer!(attribute, context)
+        attribute = attribute_registry.fetch_attribute!(:instance, name)
+        attribute_registry.redefine_attribute_setter!(attribute, block)
       end
 
       # Defines an alias method for an existing instance-level attribute.
@@ -144,9 +176,7 @@ module Cattri
       # @raise [Cattri::AttributeNotDefinedError] if the original attribute is not defined
       # @return [void]
       def instance_attribute_alias(alias_name, original)
-        attribute = __cattri_instance_attributes[original.to_sym]
-        raise Cattri::AttributeNotDefinedError.new(:instance, original) if attribute.nil?
-
+        attribute = attribute_registry.fetch_attribute!(:instance, original)
         context.define_method(attribute, name: alias_name) { public_send(original) }
       end
 
@@ -154,45 +184,35 @@ module Cattri
       #
       # @return [Array<Symbol>]
       def instance_attributes
-        ([self] + ancestors + singleton_class.included_modules)
-          .uniq
-          .select { |mod| mod.respond_to?(:__cattri_instance_attributes, true) }
-          .flat_map { |mod| mod.send(:__cattri_instance_attributes).keys }
-          .uniq
+        attribute_registry.defined_attributes(:instance, with_ancestors: true).keys
       end
 
-      # Checks if an instance-level attribute has been defined.
-      #
-      # @param name [Symbol, String]
-      # @return [Boolean]
-      def instance_attribute_defined?(name)
-        __cattri_instance_attributes.key?(name.to_sym)
-      end
-
-      # Returns the full attribute definition for a given name.
-      #
-      # @param name [Symbol, String]
-      # @return [Cattri::Attribute, nil]
-      def instance_attribute_definition(name)
-        __cattri_instance_attributes[name.to_sym]
-      end
-
-      # @!method iattr(name, **options, &block)
+      # @!method iattr(*names, **options, &block)
       #   Alias for {#instance_attribute}
       #   @see #instance_attribute
       alias iattr instance_attribute
 
-      # @!method iattr_accessor(name, **options, &block)
+      # @!method iattr_accessor(*names, **options, &block)
       #   Alias for {#instance_attribute}
       #   @see #instance_attribute
       alias iattr_accessor instance_attribute
 
-      # @!method iattr_reader(name, **options)
-      #   Alias for {#instance_attribute_reader}
-      #   @see #instance_attribute_reader
-      alias iattr_reader instance_attribute_reader
+      # @!method final_iattr(name, value, **options)
+      #   Alias for {#final_instance_attribute}
+      #   @see #final_instance_attribute
+      alias final_iattr final_instance_attribute
 
-      # @!method iattr_writer(name, **options, &block)
+      # @!method readonly_iattr(name, value, **options)
+      #   Alias for {#readonly_instance_attribute}
+      #   @see #readonly_instance_attribute
+      alias readonly_iattr readonly_instance_attribute
+
+      # @!method iattr_reader(name, value, **options)
+      #   Alias for {#readonly_instance_attribute}
+      #   @see #readonly_instance_attribute
+      alias iattr_reader readonly_instance_attribute
+
+      # @!method iattr_writer(*names, **options, &block)
       #   Alias for {#instance_attribute_writer}
       #   @see #instance_attribute_writer
       alias iattr_writer instance_attribute_writer
@@ -211,66 +231,6 @@ module Cattri
       #   Alias for {#instance_attributes}
       #   @see #instance_attributes
       alias iattrs instance_attributes
-
-      # @!method iattr_defined?(name)
-      #   Alias for {#instance_attribute_defined?}
-      #   @see #instance_attribute_defined?
-      alias iattr_defined? instance_attribute_defined?
-
-      # @!method iattr_definition(name)
-      #   Alias for {#instance_attribute_definition}
-      #   @see #instance_attribute_definition
-      alias iattr_definition instance_attribute_definition
-
-      private
-
-      # Defines a single instance-level attribute.
-      #
-      # This is the internal implementation used by {.instance_attribute} and its aliases.
-      # It creates a `Cattri::Attribute`, registers it, and defines the appropriate
-      # reader and/or writer methods on the class.
-      #
-      # @param name [Symbol, String] the attribute name
-      # @param options [Hash] additional options for the attribute
-      # @param block [Proc, nil] optional setter coercion logic
-      #
-      # @raise [Cattri::AttributeDefinedError] if the attribute has already been defined
-      # @raise [Cattri::AttributeDefinitionError] if method definition fails
-      #
-      # @return [void]
-      def define_instance_attribute(name, options, block) # rubocop:disable Metrics/AbcSize
-        options[:access] ||= __cattri_visibility
-        attribute = Cattri::Attribute.new(name, :instance, options, block)
-
-        raise Cattri::AttributeDefinedError.new(:instance, name) if instance_attribute_defined?(attribute.name)
-
-        begin
-          __cattri_instance_attributes[name.to_sym] = attribute
-          Cattri::AttributeDefiner.define_accessor(attribute, context)
-        rescue StandardError => e
-          raise Cattri::AttributeDefinitionError.new(self, attribute, e)
-        end
-
-        context.define_method(attribute, name: :"#{name}?") { !!send(attribute.name) } if options[:predicate]
-      end
-
-      # Internal registry of instance attributes defined on the class.
-      #
-      # @return [Hash{Symbol => Cattri::Attribute}]
-      def __cattri_instance_attributes
-        @__cattri_instance_attributes ||= {}
-      end
-
-      # Returns the context used to define methods for this class.
-      #
-      # Used internally to encapsulate method definition and visibility rules.
-      #
-      # @return [Cattri::Context]
-      # :nocov:
-      def context
-        @context ||= Context.new(self)
-      end
-      # :nocov:
     end
   end
 end

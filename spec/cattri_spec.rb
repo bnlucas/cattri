@@ -42,7 +42,10 @@ RSpec.describe Cattri do
       obj
     end
 
-    let(:subclass) { Class.new(klass) }
+    let(:subclass) do
+      klass.enabled(false)
+      Class.new(klass)
+    end
 
     it "inherits cattr state (class-level attributes)" do
       expect(subclass.enabled).to eq(false)
@@ -87,35 +90,15 @@ RSpec.describe Cattri do
 
   describe "copy_attributes_to" do
     it "copies all attribute metadata and state to subclass" do
-      subclass = Class.new
+      subclass = Class.new do
+        include Cattri
+      end
+
       Cattri.send(:copy_attributes_to, klass, subclass, :class)
-      expect(subclass.instance_variable_get(:@__cattri_class_attributes)).to be_a(Hash)
-    end
-  end
 
-  describe "copy_ivar_to" do
-    it "copies instance variable state to subclass with dup fallback" do
-      class_attr = Cattri::Attribute.new(:config, :class, { default: [1, 2] }, nil)
-      klass.instance_variable_set(:@config, [1, 2])
-
-      subclass = Class.new
-      expect do
-        Cattri.send(:copy_ivar_to, klass, subclass, class_attr)
-      end.not_to raise_error
-
-      expect(subclass.instance_variable_get(:@config)).to eq([1, 2])
-    end
-
-    it "gracefully falls back when value is not duplicable" do
-      attr = Cattri::Attribute.new(:flag, :class, { default: true }, nil)
-      klass.instance_variable_set(:@flag, true)
-
-      subclass = Class.new
-      expect do
-        Cattri.send(:copy_ivar_to, klass, subclass, attr)
-      end.not_to raise_error
-
-      expect(subclass.instance_variable_get(:@flag)).to eq(true)
+      expect(subclass.private_methods(false)).to include(:attribute_registry)
+      expect(subclass.private_methods(false)).to include(:context)
+      expect(subclass.class_attributes).to eq(klass.class_attributes)
     end
   end
 
