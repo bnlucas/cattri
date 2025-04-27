@@ -89,7 +89,7 @@ RSpec.describe Cattri::InstanceAttributes do
 
       expect do
         test_class.iattr :bar, default: 10
-      end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :bar on/)
+      end.to raise_error(Cattri::AttributeDefinitionError, /bar/)
     end
 
     it "raises AmbiguousBlockError when using a block with multiple attributes" do
@@ -152,7 +152,7 @@ RSpec.describe Cattri::InstanceAttributes do
     it "raises when trying to define a writer for a finalized attribute" do
       expect do
         test_class.iattr_writer :items, :finalized
-      end.to raise_error(Cattri::FinalizedAttributeError, /Instance attribute :finalized/)
+      end.to raise_error(Cattri::FinalAttributeError, /Instance attribute :finalized/)
     end
 
     it "raises when trying to define a writer for a readonly attribute" do

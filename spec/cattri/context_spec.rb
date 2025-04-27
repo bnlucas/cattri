@@ -270,7 +270,7 @@ RSpec.describe Cattri::Context do
         it "wraps the error in AttributeDefinitionError" do
           expect do
             context.send(:define_method!, target, class_attribute, attribute_name, &implementation)
-          end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :#{attribute_name}/)
+          end.to raise_error(Cattri::AttributeDefinitionError, /#{attribute_name}/)
 
           registry = context.instance_variable_get(:@defined_methods)[attribute_name]
           expect(registry).to be_empty

@@ -84,9 +84,9 @@ end
 
 ```ruby
 iattr :token, default: -> { SecureRandom.hex(8) },
-              reader:  true,
-              writer:  false,                  # read‑only
-              predicate: true
+      reader:  true,
+      writer:  false,                  # read‑only
+      predicate: true
 ```
 
 Both forms accept:

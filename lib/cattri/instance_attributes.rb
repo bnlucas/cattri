@@ -72,9 +72,9 @@ module Cattri
       # @option options [Boolean, nil] :force whether to forcibly overwrite existing methods if already defined
       # @raise [Cattri::AttributeError] or its subclasses if defining the attribute fails
       # @return [void]
-      def final_instance_attribute(name, value, **options)
-        options = options.merge(default: value, final: true, reader: true, writer: false)
-        instance_attribute(name, **options)
+      def final_instance_attribute(name, _value, **options, &block)
+        options = options.merge(default: nil, final: true, reader: true, writer: false)
+        instance_attribute(name, **options, &block)
       end
 
       # Defines a read-only instance-level attribute.

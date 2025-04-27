@@ -74,7 +74,7 @@ module Cattri
     # @return [Cattri::Attribute]
     def fetch_attribute!(level, name)
       __defined_attributes.dig(level.to_sym, name.to_sym) or
-        raise Cattri::AttributeNotDefinedError.new(level, name)
+        raise Cattri::AttributeNotDefinedError, "#{level.capitalize} attribute :#{name} has not been defined"
     end
 
     # Defines one or more class-level attributes.
@@ -111,7 +111,7 @@ module Cattri
     # @return [void]
     def redefine_attribute!(attribute)
       return defer_definition(attribute) if context.defer_definitions?
-      raise Cattri::FinalizedAttributeError.new(attribute.level, attribute.name) if attribute.final?
+      raise Cattri::FinalAttributeError.new(attribute: attribute) if attribute.final?
 
       context.clear_defined_methods_for!(attribute)
       apply_definition!(attribute)
@@ -130,8 +130,8 @@ module Cattri
     # @return [void]
     def redefine_attribute_setter!(attribute, block)
       raise Cattri::EmptyAttributeError unless attribute
-      raise Cattri::MissingBlockError.new(attribute.level, attribute.name) unless block
-      raise Cattri::FinalizedAttributeError.new(attribute.level, attribute.name) if attribute.final?
+      raise Cattri::MissingBlockError.new(attribute: attribute) unless block
+      raise Cattri::FinalAttributeError.new(attribute: attribute) if attribute.final?
 
       attribute.instance_variable_set(:@setter, attribute.send(:normalize_setter, block))
       redefine_attribute!(attribute)
@@ -182,7 +182,7 @@ module Cattri
     # @param block [Proc, nil] optional coercion block
     # @return [void]
     def define_attributes(names, level, options, block)
-      raise Cattri::UnsupportedLevelError, level unless Cattri::Attribute::ATTRIBUTE_LEVELS.include?(level)
+      raise Cattri::UnsupportedAttributeLevelError, level unless Cattri::Attribute::ATTRIBUTE_LEVELS.include?(level)
       raise Cattri::AmbiguousBlockError if names.size > 1 && block
 
       names.each do |name|
@@ -222,7 +222,7 @@ module Cattri
     # @return [void]
     def process_attribute(attribute)
       level, name = attribute.to_h.values_at(:level, :name)
-      raise Cattri::AttributeDefinedError.new(level, name) if __defined_attributes[level].key?(name)
+      raise Cattri::AttributeDefinedError.new(attribute: attribute) if __defined_attributes[level].key?(name)
 
       __defined_attributes[level][name] = attribute
       return defer_definition(attribute) if context.defer_definitions?
@@ -252,7 +252,7 @@ module Cattri
     def apply_definition!(attribute)
       Cattri::AttributeCompiler.send(:"#{attribute.level}_accessor", attribute, context)
     rescue StandardError => e
-      raise Cattri::AttributeDefinitionError.new(context.target, attribute, e)
+      raise Cattri::AttributeDefinitionError.new(attribute: attribute, error: e)
     end
   end
 end

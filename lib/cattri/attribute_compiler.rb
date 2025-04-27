@@ -131,6 +131,16 @@ module Cattri
 
       private
 
+      # Defines a callable accessor for the attribute.
+      #
+      # @example as a reader
+      #   puts MyClass.attr #=> attr's ivar value
+      #
+      # @example as a writer
+      #   puts MyClass.attr "value" #=> writes to the ivar
+      #
+      # @param attribute [Cattri::Attribute]
+      # @param context [Cattri::Context]
       def define_accessor(attribute, context)
         context.define_method(attribute) do |*args, **kwargs|
           readonly_call = args.empty? && kwargs.empty?
@@ -150,7 +160,7 @@ module Cattri
       # @return [void]
       def define_writer(attribute, context)
         block = proc do |value|
-          coerced_value = attribute.setter.call(value)
+          coerced_value = attribute.invoke_setter(value)
           instance_variable_set(attribute.ivar, coerced_value)
         end
 
@@ -185,7 +195,14 @@ module Cattri
       # @return [Object]
       # @raise [Cattri::AttributeError] if default value raises an exception
       def memoize_default_value(receiver, attribute)
-        return receiver.instance_variable_get(attribute.ivar) if receiver.instance_variable_defined?(attribute.ivar)
+        if attribute.final?
+          if receiver.instance_variable_defined?(attribute.ivar)
+            return receiver.instance_variable_get(attribute.ivar)
+          else
+            raise Cattri::FinalAttributeNilError,
+                  "Final attribute :#{attribute.name} must be explicitly assigned before reading."
+          end
+        end
 
         receiver.instance_variable_set(attribute.ivar, attribute.invoke_default)
       end
@@ -193,7 +210,13 @@ module Cattri
       def validate_level!(attribute, level)
         return if attribute.level == level
 
-        raise Cattri::InvalidAttributeContextError.new(level, attribute)
+        if level == :class && attribute.level == :instance
+          raise Cattri::InvalidClassAttributeError.new(attribute: attribute)
+        elsif level == :instance && attribute.level == :class
+          raise Cattri::InvalidInstanceAttributeError.new(attribute: attribute)
+        else
+          raise Cattri::InvalidAttributeError
+        end
       end
     end
   end

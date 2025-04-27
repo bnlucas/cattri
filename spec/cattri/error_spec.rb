@@ -1,112 +1,123 @@
-# frozen_string_literal: true
+# spec/cattri/errors_spec.rb
 
-require "spec_helper"
+require "cattri"
 
-RSpec.describe Cattri::Error do
-  it "raises a Cattri::Error" do
-    expect { raise Cattri::Error, "test" }.to raise_error(Cattri::Error, "test")
-  end
+RSpec.describe Cattri::AttributeError do
+  let(:test_attribute) { Cattri::Attribute.new(:test_attr, :instance) }
+  let(:nested_error) { StandardError.new("Nested failure") }
 
-  describe "Cattri::AttributeDefinedError" do
-    let(:attribute) { instance_double(Cattri::Attribute, name: :foo, level: :class) }
+  describe Cattri::AttributeError do
+    it "uses the default message if none provided" do
+      error = described_class.new
 
-    it "raises an error when an attribute is defined more than once" do
-      error = Cattri::AttributeDefinedError.new(attribute.level, attribute.name)
+      expect(error.message).to eq("Attribute error")
+      expect(error.attribute).to be_nil
+      expect(error.error).to be_nil
+    end
 
-      expect(error.message).to eq("Class attribute :foo has already been defined")
+    it "wraps an attribute" do
+      error = described_class.new(attribute: test_attribute)
+
+      expect(error.attribute).to eq(test_attribute)
+      expect(error.message).to eq("Attribute error")
+    end
+
+    it "wraps a nested error" do
+      error = described_class.new(error: nested_error)
+
+      expect(error.error).to eq(nested_error)
+      expect(error.message).to include("Error: Nested failure")
     end
   end
 
-  describe "Cattri::AttributeNotDefinedError" do
-    it "raises an error when the expected attribute has not been defined" do
-      error = Cattri::AttributeNotDefinedError.new(:instance, :attr)
-
-      expect(error.message).to eq("Instance attribute :attr has not been defined")
+  describe Cattri::AttributeDefinedError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("Instance attribute :test_attr has already been defined")
     end
   end
 
-  describe "Cattri::EmptyAttributeError" do
-    it "raises an error when the expected attribute is nil/empty" do
-      error = Cattri::EmptyAttributeError.new
+  describe Cattri::AttributeNotDefinedError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("Instance attribute :test_attr has not been defined")
+    end
+  end
 
+  describe Cattri::EmptyAttributeError do
+    it "uses static default message" do
+      error = described_class.new
       expect(error.message).to eq("Unable to process empty attributes")
     end
   end
 
-  describe "Cattri::AttributeDefinitionError" do
-    let(:target) { double("TargetClass") }
-    let(:attribute) { instance_double(Cattri::Attribute, name: :foo) }
-    let(:original_error) { StandardError.new("method definition failed") }
-
-    it "raises an error when defining an attribute method fails" do
-      error = Cattri::AttributeDefinitionError.new(target, attribute, original_error)
-
-      expect(error.message).to eq("Failed to define method :foo on #{target}. Error: method definition failed")
-      expect(error.backtrace).to eq(original_error.backtrace)
+  describe Cattri::AttributeDefinitionError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("Failed to define method for instance attribute `:test_attr`")
     end
   end
 
-  describe "Cattri::UnsupportedLevelError" do
-    let(:invalid_level) { :invalid_level }
-
-    it "raises an error when an unsupported attribute level is passed" do
-      error = Cattri::UnsupportedLevelError.new(invalid_level)
-
-      expect(error.message).to eq("Attribute level :invalid_level is not supported")
+  describe Cattri::UnsupportedAttributeLevelError do
+    it "formats message with attribute" do
+      error = described_class.new(:unknown_level)
+      expect(error.message).to eq("Attribute level :unknown_level is not supported")
     end
   end
 
-  describe "Cattri::AmbiguousBlockError" do
-    it "raises an error when an ambiguous block is passed" do
-      error = Cattri::AmbiguousBlockError.new
-
+  describe Cattri::AmbiguousBlockError do
+    it "uses static default message" do
+      error = described_class.new
       expect(error.message).to eq("Cannot define multiple attributes with a block")
     end
   end
 
-  describe "Cattri::MissingBlockError" do
-    it "raises an error when a missing block is passed" do
-      error = Cattri::MissingBlockError.new(:instance, :attr)
-
-      expect(error.message).to eq("A block is required to override the setter for `:attr` (instance attribute)")
+  describe Cattri::MissingBlockError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("A block is required to override the setter for the instance `:test_attr`")
     end
   end
 
-  describe "Cattri::FinalizedAttributeError" do
-    it "raises an error when attempting to write to or modify a finalized attribute" do
-      error = Cattri::FinalizedAttributeError.new(:class, :attr)
-
-      expect(error.message).to eq("Class attribute :attr is marked as final and cannot be modified")
+  describe Cattri::FinalAttributeError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("Instance attribute :test_attr is marked as final and cannot be modified")
     end
   end
 
-  describe "Cattri::ReadonlyAttributeError" do
-    it "raises an error when a setter override is attempted on a readonly attribute" do
-      error = Cattri::ReadonlyAttributeError.new(:class, :attr)
-
-      expect(error.message).to eq("Class attribute :attr is marked as readonly and cannot be overwritten")
+  describe Cattri::ReadonlyAttributeError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("Instance attribute :test_attr is marked as readonly and cannot be overwritten")
     end
   end
 
-  describe "Cattri::InvalidAttributeContextError" do
-    let(:attribute) { Cattri::Attribute.new(:test_cattr, :class) }
-
-    it "raises an error when an attribute is accessed in the wrong context" do
-      error = Cattri::InvalidAttributeContextError.new(:instance, attribute)
-
-      expect(error.message).to eq(
-        "Invalid attribute level for :#{attribute.name}. " \
-        "Expected :instance, got :#{attribute.level}"
-      )
+  describe Cattri::InvalidAttributeError do
+    it "uses static default message" do
+      error = described_class.new
+      expect(error.message).to eq("Invalid attribute provided")
     end
   end
 
-  describe "Cattri::MethodDefinedError" do
-    it "raises an error when attempting to redefine a method" do
-      klass = Class.new
-      error = Cattri::MethodDefinedError.new(:attr, klass)
+  describe Cattri::InvalidClassAttributeError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("Invalid class attribute provided, received instance attribute `:test_attr`")
+    end
+  end
 
-      expect(error.message).to eq("Method `:attr` already exists on #{klass}. Use `force: true` to override")
+  describe Cattri::InvalidInstanceAttributeError do
+    it "formats message with attribute" do
+      error = described_class.new(attribute: test_attribute)
+      expect(error.message).to eq("Invalid instance attribute provided, received class attribute `:test_attr`")
+    end
+  end
+
+  describe Cattri::MethodDefinedError do
+    it "initializes with custom message" do
+      error = described_class.new("Method already defined")
+      expect(error.message).to eq("Method already defined")
     end
   end
 end

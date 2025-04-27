@@ -115,7 +115,9 @@ module Cattri
       name = (name || attribute.name).to_sym
       target = target_for(attribute)
 
-      raise Cattri::MethodDefinedError.new(name, target) if method_defined?(attribute, name: name) && !attribute[:force]
+      if method_defined?(attribute, name: name) && !attribute[:force]
+        raise Cattri::MethodDefinedError, "Method `:#{name}` already exists on #{target}. Use `force: true` to override"
+      end
 
       define_method!(target, attribute, name, &block)
     end
@@ -161,7 +163,7 @@ module Cattri
 
       apply_access(target, name, attribute)
     rescue StandardError => e
-      raise Cattri::AttributeDefinitionError.new(target, attribute, e)
+      raise Cattri::AttributeDefinitionError.new(attribute: attribute, error: e)
     end
 
     # Determines the correct context for defining a method based on attribute type.

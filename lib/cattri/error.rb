@@ -9,90 +9,103 @@ module Cattri
   # @example
   #   rescue Cattri::Error => e
   #     puts "Something went wrong with Cattri: #{e.message}"
-  class Error < StandardError; end
+  class Error < StandardError
+    SYSTEM_PATHS = %r{/(gems|ruby)/}.freeze
+
+    def initialize(msg = nil, backtrace: caller)
+      super(msg)
+      set_backtrace(clean_backtrace(backtrace))
+    end
+
+    private
+
+    def clean_backtrace(backtrace)
+      return [] unless backtrace
+
+      backtrace.grep_v(SYSTEM_PATHS)
+    end
+  end
 
   # Base error for all attribute-related failures.
   #
   # Raised for definition conflicts, invalid configuration, or
   # issues during attribute access or mutation.
   #
-  # @example
-  #   rescue Cattri::AttributeError => e
-  #     puts "Attribute error: #{e.message}"
-  class AttributeError < Cattri::Error; end
+  # Builds a message dynamically using DEFAULT_MESSAGE. If an attribute
+  # is passed, interpolation keys like :name and :level are filled in.
+  # If a nested error is passed, its message is appended and backtrace preserved.
+  #
+  # @example Basic usage
+  #   raise Cattri::AttributeError.new
+  #
+  # @example With attribute interpolation
+  #   raise Cattri::AttributeDefinedError.new(attribute: attr)
+  #
+  # @example Wrapping an existing error
+  #   raise Cattri::AttributeDefinitionError.new(attribute: attr, error: e)
+  class AttributeError < Cattri::Error
+    # The default fallback message used when no message is provided.
+    # @internal Used by AttributeError to dynamically build the error message
+    DEFAULT_MESSAGE = "Attribute error"
 
-  # Base error for all context-related issues.
-  #
-  # Raised when an error occurs while defining methods or
-  # resolving method visibility in the given context.
-  #
-  # @example
-  #   rescue Cattri::ContextError => e
-  #     puts "Context error: #{e.message}"
-  class ContextError < Cattri::Error; end
+    # @return [Cattri::Attribute, nil] the attribute associated with the error, if provided
+    attr_reader :attribute
+
+    # @return [Exception, nil] the original nested error, if provided
+    attr_reader :error
+
+    # Initializes a new AttributeError.
+    #
+    # @param message [String, nil] an optional custom error message
+    # @param attribute [Cattri::Attribute, nil] an optional attribute for message interpolation
+    # @param error [Exception, nil] an optional nested error whose message and backtrace are preserved
+    def initialize(message = nil, attribute: nil, error: nil)
+      message ||= self.class.const_get(:DEFAULT_MESSAGE)
+      message = (message % attribute.to_h).capitalize if attribute
+      backtrace = caller
+
+      if error
+        message = "#{message} -- Error: #{error&.message}"
+        backtrace = error&.backtrace
+      end
+
+      super(message || DEFAULT_MESSAGE, backtrace: backtrace)
+
+      @attribute = attribute
+      @error = error
+    end
+  end
 
   # Raised when an attribute is defined more than once.
   #
   # This typically indicates a naming collision or duplicate declaration.
-  #
-  # @example
-  #   raise Cattri::AttributeDefinedError.new(:instance, :name)
   class AttributeDefinedError < Cattri::AttributeError
-    # @param level [Symbol] :class or :instance
-    # @param name [Symbol] attribute name
-    def initialize(level, name)
-      super("#{level.capitalize} attribute :#{name} has already been defined")
-    end
+    DEFAULT_MESSAGE = "%<level>s attribute :%<name>s has already been defined"
   end
 
   # Raised when an attribute has not been defined but is being accessed or mutated.
-  #
-  # This applies to both class-level and instance-level attributes.
-  #
-  # @example
-  #   raise Cattri::AttributeNotDefinedError.new(:class, :foo)
   class AttributeNotDefinedError < Cattri::AttributeError
-    # @param level [Symbol] :class or :instance
-    # @param name [Symbol] attribute name
-    def initialize(level = nil, name = nil)
-      super("#{level.capitalize} attribute :#{name} has not been defined")
-    end
+    DEFAULT_MESSAGE = "%<level>s attribute :%<name>s has not been defined"
   end
 
   # Raised when an attribute value is unexpectedly nil or empty.
   #
-  # Used defensively when attempting to operate on an attribute
-  # that must be present but is missing or uninitialized.
-  class EmptyAttributeError < Cattri::Error
-    def initialize
-      super("Unable to process empty attributes")
-    end
+  # Used defensively when attempting to operate on an attribute that must be present.
+  class EmptyAttributeError < Cattri::AttributeError
+    DEFAULT_MESSAGE = "Unable to process empty attributes"
   end
 
   # Raised when method definition fails (e.g., reader, writer, or custom setter).
   #
-  # This wraps and re-raises the original Ruby error that occurred.
-  #
-  # @example
-  #   raise Cattri::AttributeDefinitionError.new(self, attribute, error)
+  # This wraps and re-raises the original Ruby error that occurred during method definition.
   class AttributeDefinitionError < Cattri::AttributeError
-    # @param target [Module] the receiving class or module
-    # @param attribute [Cattri::Attribute] the attribute being defined
-    # @param error [Exception] the original raised error
-    def initialize(target, attribute, error)
-      super("Failed to define method :#{attribute.name} on #{target}. Error: #{error.message}")
-      set_backtrace(error.backtrace)
-    end
+    DEFAULT_MESSAGE = "Failed to define method for %<level>s attribute `:%<name>s`"
   end
 
   # Raised when an unsupported attribute level is specified.
   #
-  # Only `:class` and `:instance` are valid levels.
-  #
-  # @example
-  #   raise Cattri::UnsupportedLevelError.new(:global)
-  class UnsupportedLevelError < Cattri::AttributeError
-    # @param level [Symbol] the invalid level
+  # Only `:class` and `:instance` are valid attribute levels.
+  class UnsupportedAttributeLevelError < Cattri::AttributeError
     def initialize(level)
       super("Attribute level :#{level} is not supported")
     end
@@ -101,87 +114,55 @@ module Cattri
   # Raised when a block is incorrectly passed when defining multiple attributes.
   #
   # Blocks are only allowed when defining a single attribute.
-  #
-  # @example
-  #   cattr :foo, :bar do ... end #=> raises AmbiguousBlockError
   class AmbiguousBlockError < Cattri::AttributeError
-    def initialize
-      super("Cannot define multiple attributes with a block")
-    end
+    DEFAULT_MESSAGE = "Cannot define multiple attributes with a block"
   end
 
   # Raised when a setter override is attempted without providing a block.
   #
   # Blocks are required for custom setter logic via `cattr_setter` or `iattr_setter`.
-  #
-  # @example
-  #   iattr_setter :value #=> raises MissingBlockError
   class MissingBlockError < Cattri::AttributeError
-    # @param level [Symbol] :class or :instance
-    # @param name [Symbol] the attribute name
-    def initialize(level, name)
-      super("A block is required to override the setter for `:#{name}` (#{level} attribute)")
-    end
+    DEFAULT_MESSAGE = "A block is required to override the setter for the %<level>s `:%<name>s`"
   end
 
   # Raised when attempting to redefine or write to a finalized attribute.
   #
-  # Finalized attributes cannot have writers assigned via `iattr_writer` and cannot have setters
-  # updated via `cattr_setter` or `iattr_setter`.
-  #
-  # @example
-  #   final_iattr :attr
-  #   iattr_setter :attr do |value| #=> raises FinalizedAttributeError.
-  #     value.to_s
-  #   end
-  class FinalizedAttributeError < Cattri::AttributeError
-    def initialize(level, name)
-      super("#{level.capitalize} attribute :#{name} is marked as final and cannot be modified")
-    end
+  # Finalized attributes cannot have writers assigned or setters redefined.
+  class FinalAttributeError < Cattri::AttributeError
+    DEFAULT_MESSAGE = "%<level>s attribute :%<name>s is marked as final and cannot be modified"
   end
 
-  # Raised when a writer definition is attempted on a readonly attribute.
+  # Raised when a writer is attempted on a readonly attribute.
   #
   # Readonly attributes cannot have writers assigned via `iattr_writer`.
-  #
-  # @example
-  #   iattr :token, readonly: true
-  #   iattr_writer :token { |v| ... } #=> raises ReadonlyAttributeError
   class ReadonlyAttributeError < Cattri::AttributeError
-    # @param name [Symbol] attribute name
-    def initialize(level, name)
-      super("#{level.capitalize} attribute :#{name} is marked as readonly and cannot be overwritten")
-    end
+    DEFAULT_MESSAGE = "%<level>s attribute :%<name>s is marked as readonly and cannot be overwritten"
   end
 
   # Raised when an attribute is accessed in the wrong context.
   #
-  # For example, accessing a class attribute using an instance accessor.
-  #
-  # @example
-  #   raise Cattri::InvalidAttributeContextError.new(:class, attribute)
-  class InvalidAttributeContextError < Cattri::AttributeError
-    # @param level [Symbol] expected level (:class or :instance)
-    # @param attribute [Cattri::Attribute]
-    def initialize(level, attribute)
-      super(
-        "Invalid attribute level for :#{attribute.name}. " \
-        "Expected :#{level}, got :#{attribute.level}"
-      )
-    end
+  # For example, accessing a class attribute from an instance, or vice versa.
+  class InvalidAttributeError < Cattri::AttributeError
+    DEFAULT_MESSAGE = "Invalid attribute provided"
   end
 
-  # Raised when a method is already defined on the target.
-  #
-  # Used to prevent accidental method redefinition unless explicitly overridden with `force: true`.
-  #
-  # @example
-  #   raise Cattri::MethodDefinedError.new(:name, MyClass)
-  class MethodDefinedError < Cattri::ContextError
-    # @param name [Symbol] the method name
-    # @param target [Module] the target class or module
-    def initialize(name, target)
-      super("Method `:#{name}` already exists on #{target}. Use `force: true` to override")
-    end
+  # Raised when a class attribute is expected but an instance attribute is provided.
+  class InvalidClassAttributeError < Cattri::InvalidAttributeError
+    DEFAULT_MESSAGE = "Invalid class attribute provided, received instance attribute `:%<name>s`"
   end
+
+  # Raised when an instance attribute is expected but a class attribute is provided.
+  class InvalidInstanceAttributeError < Cattri::InvalidAttributeError
+    DEFAULT_MESSAGE = "Invalid instance attribute provided, received class attribute `:%<name>s`"
+  end
+
+  # Base error for all context-related issues outside of attribute-level behavior.
+  #
+  # Raised when method visibility or dynamic method definition fails.
+  class ContextError < Cattri::Error; end
+
+  # Raised when a method is already defined on a target module or class.
+  #
+  # Used to prevent accidental redefinition unless explicitly overridden with `force: true`.
+  class MethodDefinedError < Cattri::ContextError; end
 end

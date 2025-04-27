@@ -8,7 +8,7 @@ RSpec.describe Cattri::Attribute do
     it "raises error for unsupported level" do
       expect do
         described_class.new(:foo, :bogus)
-      end.to raise_error(Cattri::UnsupportedLevelError, "Attribute level :bogus is not supported")
+      end.to raise_error(Cattri::UnsupportedAttributeLevelError, /:bogus/)
     end
 
     it "uses default :public access and normalizes ivar" do
@@ -155,7 +155,7 @@ RSpec.describe Cattri::Attribute do
 
       expect do
         attribute.invoke_setter("value")
-      end.to raise_error(Cattri::FinalizedAttributeError, /Class attribute :#{attribute.name}/)
+      end.to raise_error(Cattri::FinalAttributeError, /Class attribute :#{attribute.name}/)
     end
   end
 
@@ -256,7 +256,7 @@ RSpec.describe Cattri::Attribute do
       attr = described_class.new(:foo, :instance, final: true)
       expect do
         attr.guard_writable!
-      end.to raise_error(Cattri::FinalizedAttributeError, /Instance attribute :#{attr.name}/)
+      end.to raise_error(Cattri::FinalAttributeError, /Instance attribute :#{attr.name}/)
     end
 
     it "raises on readonly class attributes" do

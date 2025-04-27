@@ -22,7 +22,8 @@ module Cattri
       final: false,
       readonly: false,
       predicate: false,
-      force: false
+      force: false,
+      written_to: false
     }.freeze
 
     # Default options for class-level attributes.
@@ -74,7 +75,7 @@ module Cattri
     # @raise [Cattri::UnsupportedLevelError] if an invalid level is provided
     def initialize(name, level, defined_in: nil, **options, &block)
       @level = level.to_sym
-      raise Cattri::UnsupportedLevelError, level unless ATTRIBUTE_LEVELS.include?(@level)
+      raise Cattri::UnsupportedAttributeLevelError, level unless ATTRIBUTE_LEVELS.include?(@level)
 
       @name = name.to_sym
       @ivar = normalize_ivar(options[:ivar])
@@ -122,22 +123,24 @@ module Cattri
 
     # @return [Boolean] whether the attribute is marked final
     def final?
-      !!to_h[:final]
+      !!@options[:final]
     end
 
     # @return [Boolean] whether the attribute is marked readonly
     def readonly?
-      !!to_h[:readonly]
+      !!@options[:readonly]
     end
 
     # @return [Boolean] whether the attribute is readable
     def readable?
-      class_level? || !!to_h[:reader]
+      class_level? || !!@options[:reader]
     end
 
     # @return [Boolean] whether the attribute is writable
     def writable?
-      !final? && !readonly?
+      return !final? && !readonly? if class_level?
+
+      !readonly?
     end
 
     # @return [Boolean] whether the attribute is public
@@ -153,6 +156,11 @@ module Cattri
     # @return [Boolean] whether the attribute is private
     def private?
       access == :private
+    end
+
+    # @return [Boolean] whether the attribute has been written to
+    def written_to?
+      !!@options[:written_to]
     end
 
     # Invokes the default value logic for the attribute.
@@ -172,10 +180,13 @@ module Cattri
     # @raise [Cattri::AttributeError] if setter raises an error
     # @return [Object] the value returned by the setter
     def invoke_setter(*args, **kwargs)
-      raise Cattri::FinalizedAttributeError.new(level, name) if final?
+      if final? && (class_level? || (instance_level? && written_to?))
+        raise Cattri::FinalAttributeError.new(attribute: self)
+      end
 
+      @options[:written_to] = true
       setter.call(*args, **kwargs)
-    rescue Cattri::FinalizedAttributeError
+    rescue Cattri::FinalAttributeError
       raise
     rescue StandardError => e
       raise Cattri::AttributeError, "Failed to evaluate the setter for :#{name}. Error: #{e.message}"
@@ -187,9 +198,9 @@ module Cattri
     # @raise [Cattri::ReadonlyAttributeError] for readonly attributes
     def guard_writable!
       if final?
-        raise Cattri::FinalizedAttributeError.new(level, name)
+        raise Cattri::FinalAttributeError.new(attribute: self)
       elsif readonly?
-        raise Cattri::ReadonlyAttributeError.new(level, name)
+        raise Cattri::ReadonlyAttributeError.new(attribute: self)
       end
     end
 

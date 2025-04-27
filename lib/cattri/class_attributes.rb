@@ -138,7 +138,7 @@ module Cattri
       attribute = attribute_registry.fetch_attribute!(:class, name)
 
       unless context.method_defined?(attribute, name: "#{name}=")
-        raise Cattri::AttributeNotDefinedError.new(:class, name)
+        raise Cattri::AttributeNotDefinedError.new(attribute: attribute)
       end
 
       attribute_registry.redefine_attribute_setter!(attribute, block)

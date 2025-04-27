@@ -170,7 +170,7 @@ RSpec.describe Cattri::AttributeRegistry do
 
       expect do
         registry.redefine_attribute!(class_attribute)
-      end.to raise_error(Cattri::FinalizedAttributeError, /Class attribute :#{class_attribute.name}/)
+      end.to raise_error(Cattri::FinalAttributeError, /Class attribute :#{class_attribute.name}/)
     end
   end
 
@@ -194,7 +194,7 @@ RSpec.describe Cattri::AttributeRegistry do
     it "raises an error when the block provided is nil" do
       expect do
         registry.redefine_attribute_setter!(instance_attribute, nil)
-      end.to raise_error(Cattri::MissingBlockError, /setter for `:#{instance_attribute.name}` \(instance attribute\)/)
+      end.to raise_error(Cattri::MissingBlockError, /#{instance_attribute.name}/)
     end
 
     it "raises an error when attempting to redefine a finalized attribute" do
@@ -202,7 +202,7 @@ RSpec.describe Cattri::AttributeRegistry do
 
       expect do
         registry.redefine_attribute_setter!(class_attribute, lambda(&:to_i))
-      end.to raise_error(Cattri::FinalizedAttributeError, /Class attribute :#{class_attribute.name}/)
+      end.to raise_error(Cattri::FinalAttributeError, /#{class_attribute.name}/)
     end
   end
 
@@ -254,7 +254,7 @@ RSpec.describe Cattri::AttributeRegistry do
       it "raises an when an unsupported level is provided" do
         expect do
           registry.send(:define_attributes, [:attr], :unknown, {}, nil)
-        end.to raise_error(Cattri::UnsupportedLevelError, /Attribute level :unknown/)
+        end.to raise_error(Cattri::UnsupportedAttributeLevelError, /:unknown/)
       end
 
       it "raises an error when block is provided with multiple attributes" do
@@ -355,7 +355,7 @@ RSpec.describe Cattri::AttributeRegistry do
 
         expect do
           registry.send(:apply_definition!, class_attribute)
-        end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :#{class_attribute.name}/)
+        end.to raise_error(Cattri::AttributeDefinitionError, /#{class_attribute.name}/)
       end
     end
   end

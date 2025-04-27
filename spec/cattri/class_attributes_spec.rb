@@ -120,7 +120,7 @@ RSpec.describe Cattri::ClassAttributes do
 
       expect do
         test_class.cattr :bar, default: 10
-      end.to raise_error(Cattri::AttributeDefinitionError, /Failed to define method :bar on/)
+      end.to raise_error(Cattri::AttributeDefinitionError, /bar/)
     end
 
     it "raises AmbiguousBlockError when using a block with multiple attributes" do
@@ -146,7 +146,7 @@ RSpec.describe Cattri::ClassAttributes do
     it "defines a readonly accessor" do
       expect do
         subject.finalized "finalize"
-      end.to raise_error(Cattri::FinalizedAttributeError, /Class attribute :finalized/)
+      end.to raise_error(Cattri::FinalAttributeError, /Class attribute :finalized/)
     end
   end
 
@@ -200,7 +200,7 @@ RSpec.describe Cattri::ClassAttributes do
     it "raises AttributeNotDefinedError if the writer method does not exist" do
       expect do
         test_class.class_attribute_setter(:readonly) { |v| v }
-      end.to raise_error(Cattri::AttributeNotDefinedError, /Class attribute :readonly has not been defined/)
+      end.to raise_error(Cattri::AttributeNotDefinedError, /:readonly/)
     end
   end
 

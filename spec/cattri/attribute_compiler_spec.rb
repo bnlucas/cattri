@@ -308,7 +308,7 @@ RSpec.describe Cattri::AttributeCompiler do
       it "raises an error when the attribute level differs from the provided level" do
         expect do
           compiler.send(:validate_level!, instance_attribute, :class)
-        end.to raise_error(Cattri::InvalidAttributeContextError, /Expected :class, got :instance/)
+        end.to raise_error(Cattri::InvalidClassAttributeError, /Invalid class attribute/)
       end
     end
   end
