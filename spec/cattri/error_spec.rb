@@ -3,58 +3,35 @@
 require "spec_helper"
 
 RSpec.describe Cattri::Error do
-  it "raises a Cattri::Error" do
-    expect { raise Cattri::Error, "test" }.to raise_error(Cattri::Error, "test")
-  end
+  describe ".new" do
+    it "inherits from StandardError" do
+      expect(described_class).to be < StandardError
+    end
 
-  describe "Cattri::AttributeDefinedError" do
-    let(:attribute) { instance_double(Cattri::Attribute, name: :foo, type: :class) }
+    it "sets the message and custom backtrace" do
+      backtrace = ["custom/location.rb:42"]
+      error = described_class.new("oops", backtrace)
 
-    it "raises an error when an attribute is defined more than once" do
-      error = Cattri::AttributeDefinedError.new(attribute.type, attribute.name)
+      expect(error.message).to eq("oops")
+      expect(error.backtrace).to eq(backtrace)
+    end
 
-      expect(error.message).to eq("Class attribute :foo has already been defined")
+    it "defaults to caller backtrace if none given" do
+      error = described_class.new("default trace")
+      expect(error.backtrace).to be_an(Array)
+      expect(error.backtrace.first).to include(__FILE__)
     end
   end
+end
 
-  describe "Cattri::AttributeNotDefinedError" do
-    let(:attribute) { instance_double(Cattri::Attribute, name: :foo, type: :class) }
-
-    it "raises an error when an attribute has not yet been defined" do
-      error = Cattri::AttributeNotDefinedError.new(attribute.type, attribute.name)
-
-      expect(error.message).to eq("Class attribute :foo has not been defined")
-    end
+RSpec.describe Cattri::AttributeError do
+  it "inherits from Cattri::Error" do
+    expect(described_class).to be < Cattri::Error
   end
 
-  describe "Cattri::AttributeDefinitionError" do
-    let(:target) { double("TargetClass") }
-    let(:attribute) { instance_double(Cattri::Attribute, name: :foo) }
-    let(:original_error) { StandardError.new("method definition failed") }
-
-    it "raises an error when defining an attribute method fails" do
-      error = Cattri::AttributeDefinitionError.new(target, attribute, original_error)
-
-      expect(error.message).to eq("Failed to define method :foo on #{target}. Error: method definition failed")
-      expect(error.backtrace).to eq(original_error.backtrace)
-    end
-  end
-
-  describe "Cattri::UnsupportedTypeError" do
-    let(:invalid_type) { :invalid_type }
-
-    it "raises an error when an unsupported attribute type is passed" do
-      error = Cattri::UnsupportedTypeError.new(invalid_type)
-
-      expect(error.message).to eq("Attribute type :invalid_type is not supported")
-    end
-  end
-
-  describe "Cattri::AmbiguousBlockError" do
-    it "raises an error when an ambiguous block is passed" do
-      error = Cattri::AmbiguousBlockError.new
-
-      expect(error.message).to eq("Cannot define multiple attributes with a block")
-    end
+  it "retains message and backtrace" do
+    error = described_class.new("bad attr", ["attr.rb:1"])
+    expect(error.message).to eq("bad attr")
+    expect(error.backtrace).to eq(["attr.rb:1"])
   end
 end

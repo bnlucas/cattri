@@ -1,8 +1,3 @@
-# frozen_string_literal: true
-
-require "set"
-require_relative "deferred_attributes"
-
 module Cattri
   # Cattri::Context encapsulates the class or module that attributes are being defined on.
   #
@@ -17,49 +12,41 @@ module Cattri
   #
   # All method definitions occur directly on the resolved target (e.g., the class or its singleton).
   class Context
+    @target: ::Module
+
+    @__cattri_defined_methods: ::Hash[::Symbol, ::Set[::Symbol]]
+
     # The class or module that owns the attributes.
     #
     # @return [Module]
-    attr_reader :target
+    attr_reader target: ::Module
 
     # @param target [Module, Class]
-    def initialize(target)
-      @target = target
-    end
+    def initialize: (::Module target) -> void
 
     # Returns a frozen copy of all attribute methods explicitly defined by this context.
     #
     # This does not include inherited or module-defined methods.
     #
     # @return [Hash{Symbol => Set<Symbol>}] map of attribute name to defined method names
-    def defined_methods
-      (@__cattri_defined_methods ||= {}).dup.freeze # steep:ignore
-    end
+    def defined_methods: () -> ::Hash[::Symbol, ::Set[::Symbol]]
 
     # Whether this target should defer method definitions (e.g., if it's a module).
     #
     # @return [Boolean]
-    def defer_definitions?
-      @target.is_a?(Module) && !@target.is_a?(Class)
-    end
+    def defer_definitions?: () -> bool
 
     # Ensures the target includes Cattri::DeferredAttributes if needed.
     #
     # Used to prepare modules for later application of attributes when included elsewhere.
     #
     # @return [void]
-    def ensure_deferred_support!
-      return if @target < Cattri::DeferredAttributes
-
-      @target.extend(Cattri::DeferredAttributes)
-    end
+    def ensure_deferred_support!: () -> void
 
     # All ancestors and included modules used for attribute lookup and inheritance.
     #
     # @return [Array<Module>]
-    def attribute_lookup_sources
-      ([@target] + @target.ancestors + @target.singleton_class.included_modules).uniq
-    end
+    def attribute_lookup_sources: () -> ::Array[::Module]
 
     # Defines a method for the given attribute unless already defined locally.
     #
@@ -70,16 +57,7 @@ module Cattri
     # @yield method implementation block
     # @raise [Cattri::AttributeError] if method is already defined and not forced
     # @return [void]
-    def define_method(attribute, name: nil, &block)
-      name = (name || attribute.name).to_sym
-      target = target_for(attribute)
-
-      if method_defined?(attribute, name: name)
-        raise Cattri::AttributeError, "Method `:#{name}` already defined on #{target}"
-      end
-
-      define_method!(target, attribute, name, &block)
-    end
+    def define_method: (Attribute attribute, ?name: identifier?) { (?) -> untyped } -> void
 
     # Checks if the given method is already defined on the resolved target.
     #
@@ -88,36 +66,20 @@ module Cattri
     # @param attribute [Cattri::Attribute]
     # @param name [Symbol, nil]
     # @return [Boolean]
-    def method_defined?(attribute, name: nil)
-      normalized_name = (name || attribute.name).to_sym
-      target = target_for(attribute)
-
-      defined_locally = (
-        target.public_instance_methods(false) +
-          target.protected_instance_methods(false) +
-          target.private_instance_methods(false)
-      )
-
-      defined_locally.include?(normalized_name) ||
-        __cattri_defined_methods[attribute.name].include?(normalized_name)
-    end
+    def method_defined?: (Attribute attribute, ?name: identifier?) -> bool
 
     private
 
     # Internal tracking of explicitly defined methods per attribute.
     #
     # @return [Hash{Symbol => Set<Symbol>}]
-    def __cattri_defined_methods
-      @__cattri_defined_methods ||= Hash.new { |h, k| h[k] = Set.new }
-    end
+    def __cattri_defined_methods: () -> ::Hash[::Symbol, ::Set[::Symbol]]
 
     # Determines whether to define the method on the instance or singleton.
     #
     # @param attribute [Cattri::Attribute]
     # @return [Module]
-    def target_for(attribute)
-      attribute.class_attribute? ? @target.singleton_class : @target
-    end
+    def target_for: (Attribute attribute) -> ::Module
 
     # Defines the method and applies its access visibility.
     #
@@ -126,14 +88,7 @@ module Cattri
     # @param name [Symbol]
     # @yield method implementation
     # @return [void]
-    def define_method!(target, attribute, name, &block)
-      target.class_eval { define_method(name, &block) } # steep:ignore
-      __cattri_defined_methods[attribute.name] << name
-
-      apply_visibility!(target, name, attribute)
-    rescue StandardError => e
-      raise Cattri::AttributeError, "Failed to define accessor methods for `:#{name}` on #{target}. Error: #{e.message}"
-    end
+    def define_method!: (::Module target, Attribute attribute, ::Symbol name) { (?) -> untyped } -> void
 
     # Applies visibility (`public`, `protected`, `private`) to a method.
     #
@@ -143,12 +98,7 @@ module Cattri
     # @param name [Symbol]
     # @param attribute [Cattri::Attribute]
     # @return [void]
-    def apply_visibility!(target, name, attribute)
-      visibility = effective_visibility(attribute, name)
-      return if visibility == :public
-
-      Module.instance_method(visibility).bind(target).call(name)
-    end
+    def apply_visibility!: (::Module target, ::Symbol name, Attribute attribute) -> void
 
     # Determines the effective visibility of the attribute.
     #
@@ -162,12 +112,7 @@ module Cattri
     #
     # @param attribute [Cattri::Attribute]
     # @return [Symbol]
-    def effective_visibility(attribute, name)
-      return :protected if attribute.class_attribute? && internal_method?(attribute, name)
-      return :private if !attribute.class_attribute? && internal_method?(attribute, name)
-
-      Cattri::AttributeOptions.validate_visibility!(attribute.visibility)
-    end
+    def effective_visibility: (Attribute attribute, ::Symbol name) -> visibility_types
 
     # Determines whether the given method name (accessor or writer)
     # should be treated as internal-only based on the attribute's `expose` configuration.
@@ -180,10 +125,6 @@ module Cattri
     # @param attribute [Cattri::Attribute] the attribute definition
     # @param name [Symbol, String] the method name being defined
     # @return [Boolean] true if the method should be scoped for internal use only
-    def internal_method?(attribute, name)
-      return attribute.internal_writer? if name.to_s.end_with?("=")
-
-      attribute.internal_reader?
-    end
+    def internal_method?: (Attribute attribute, Symbol name) -> bool
   end
 end

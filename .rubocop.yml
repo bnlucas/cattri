@@ -28,13 +28,16 @@ Layout/LineLength:
 Lint/MissingSuper:
   Enabled: false
 
-Metrics/ClassLength:
-  Max: 200
-
 Metrics/BlockLength:
   Exclude:
     - cattri.gemspec
     - spec/**/*.rb
 
+Metrics/ClassLength:
+  Max: 200
+
 Metrics/MethodLength:
   Max: 20
+
+Metrics/ParameterLists:
+  Enabled: false

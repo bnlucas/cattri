@@ -1,0 +1,95 @@
+module Cattri
+  # Cattri::AttributeRegistry is responsible for managing attribute definitions
+  # for a given context (class or module). It validates uniqueness, applies
+  # definition logic, and supports inheritance and introspection.
+  #
+  # It handles both eager and deferred attribute compilation and ensures correct
+  # behavior for `class: true`, `final: true`, and other attribute options.
+  class AttributeRegistry
+    @context: Context
+
+    @__cattri_registered_attributes: ::Hash[::Symbol, Attribute]
+
+    # @return [Cattri::Context] the context this registry operates within
+    attr_reader context: Context
+
+    # Initializes a new registry for the provided context.
+    #
+    # @param context [Cattri::Context]
+    def initialize: (Context context) -> void
+
+    # Returns the attributes registered directly on this context.
+    #
+    # @return [Hash{Symbol => Cattri::Attribute}]
+    def registered_attributes: () -> ::Hash[::Symbol, Attribute]
+
+    # Returns all known attributes, optionally including inherited definitions.
+    #
+    # @param with_ancestors [Boolean] whether to include ancestors
+    # @return [Hash{Symbol => Cattri::Attribute}]
+    def defined_attributes: (?with_ancestors: bool) -> ::Hash[::Symbol, Attribute]
+
+    # Fetches an attribute by name, or returns nil.
+    #
+    # @param name [String, Symbol]
+    # @param with_ancestors [Boolean]
+    # @return [Cattri::Attribute, nil]
+    def fetch_attribute: (identifier name, ?with_ancestors: bool) -> Attribute
+
+    # Fetches an attribute by name, or raises if not found.
+    #
+    # @param name [String, Symbol]
+    # @param with_ancestors [Boolean]
+    # @return [Cattri::Attribute]
+    # @raise [Cattri::AttributeError] if the attribute is not defined
+    def fetch_attribute!: (identifier name, ?with_ancestors: bool) -> Attribute
+
+    # Defines a new attribute and registers it on the current context.
+    #
+    # @param name [String, Symbol] the attribute name
+    # @param value [Object, Proc, nil] default value or initializer
+    # @param options [Hash] attribute options (`:class`, `:final`, etc.)
+    # @yield [*args] optional transformation block used as setter
+    # @return [Array<Symbol>] list of methods defined by this attribute
+    # @raise [Cattri::AttributeError] if the name is already defined
+    def define_attribute: (
+        identifier name,
+        Proc | untyped value,
+        **attribute_options options
+      ) { (?) -> untyped } -> ::Array[::Symbol]
+
+    # Copies registered attributes from this context to another,
+    # preserving definitions and assigning values for `final: true, class: true`.
+    #
+    # @param target_context [Cattri::Context]
+    # @return [void]
+    def copy_attributes_to: (Context target_context) -> void
+
+    private
+
+    # Validates that no attribute with the same name is already registered.
+    #
+    # @param name [Symbol]
+    # @raise [Cattri::AttributeError]
+    def validate_unique!: (::Symbol name) -> void
+
+    # Registers an attribute and applies or defers its definition.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @return [void]
+    def register_attribute: (Attribute attribute) -> void
+
+    # Defers the attribute definition if in a module context.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @return [void]
+    def defer_definition: (Attribute attribute) -> void
+
+    # Applies the attribute definition using the compiler.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @return [void]
+    # @raise [Cattri::AttributeError]
+    def apply_definition!: (Attribute attribute) -> void
+  end
+end

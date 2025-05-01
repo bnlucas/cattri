@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 module Cattri
   # Provides a read-only interface for inspecting attributes defined via the Cattri DSL.
   #
@@ -11,9 +9,7 @@ module Cattri
   module Introspection
     # @param base [Class, Module] the target that includes `Cattri`
     # @return [void]
-    def self.included(base)
-      base.extend(ClassMethods)
-    end
+    def self.included: (::Module base) -> void
 
     # @api public
     # Class-level introspection methods exposed via `.attribute_defined?`, `.attribute`, etc.
@@ -22,9 +18,7 @@ module Cattri
       #
       # @param name [Symbol, String] the attribute name
       # @return [Boolean]
-      def attribute_defined?(name)
-        !!attribute(name)
-      end
+      def attribute_defined?: (identifier name) -> bool
 
       # Returns the attribute definition for the given name.
       #
@@ -32,9 +26,7 @@ module Cattri
       #
       # @param name [Symbol, String] the attribute name
       # @return [Cattri::Attribute, nil]
-      def attribute(name)
-        attribute_registry.defined_attributes(with_ancestors: true)[name.to_sym] # steep:ignore
-      end
+      def attribute: (identifier name) -> Attribute?
 
       # Returns a list of attribute names defined on this class.
       #
@@ -42,9 +34,7 @@ module Cattri
       #
       # @param with_ancestors [Boolean]
       # @return [Array<Symbol>]
-      def attributes(with_ancestors: false)
-        attribute_registry.defined_attributes(with_ancestors: with_ancestors).keys # steep:ignore
-      end
+      def attributes: (?with_ancestors: bool) -> ::Array[::Symbol]
 
       # Returns a hash of attribute definitions defined on this class.
       #
@@ -52,26 +42,20 @@ module Cattri
       #
       # @param with_ancestors [Boolean]
       # @return [Hash{Symbol => Cattri::Attribute}]
-      def attribute_definitions(with_ancestors: false)
-        attribute_registry.defined_attributes(with_ancestors: with_ancestors) # steep:ignore
-      end
+      def attribute_definitions: (?with_ancestors: bool) -> ::Hash[::Symbol, Attribute]
 
       # Returns a hash of all methods defined by Cattri attributes.
       #
       # This includes accessors, writers, and predicates where applicable.
       #
       # @return [Hash{Symbol => Set<Symbol>}]
-      def attribute_methods
-        context.defined_methods # steep:ignore
-      end
+      def attribute_methods: () -> ::Hash[::Symbol, ::Set[::Symbol]]
 
       # Returns the original class or module where the given attribute was defined.
       #
       # @param name [Symbol, String] the attribute name
       # @return [Module, nil]
-      def attribute_source(name)
-        attribute(name)&.defined_in
-      end
+      def attribute_source: (identifier name) -> ::Module?
     end
   end
 end

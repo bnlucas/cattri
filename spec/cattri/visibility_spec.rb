@@ -7,16 +7,12 @@ RSpec.describe Cattri::Visibility do
   let(:klass) do
     Class.new do
       extend Cattri::Visibility
-
-      def self.visibility_value
-        __cattri_visibility
-      end
     end
   end
 
   describe "#__cattri_visibility" do
     it "defaults to public" do
-      expect(klass.visibility_value).to eq(:public)
+      expect(klass.send(:__cattri_visibility)).to eq(:public)
     end
   end
 
@@ -25,13 +21,12 @@ RSpec.describe Cattri::Visibility do
       klass.protected
       klass.public
 
-      expect(klass.visibility_value).to eq(:public)
+      expect(klass.send(:__cattri_visibility)).to eq(:public)
     end
 
     it "delegates to Module#public when args are passed" do
       klass.class_eval do
         def sample_method; end
-        private :sample_method
       end
 
       expect { klass.public :sample_method }.not_to raise_error
@@ -42,7 +37,7 @@ RSpec.describe Cattri::Visibility do
   describe "#protected" do
     it "sets visibility to protected when no args are passed" do
       klass.protected
-      expect(klass.visibility_value).to eq(:protected)
+      expect(klass.send(:__cattri_visibility)).to eq(:protected)
     end
 
     it "delegates to Module#protected when args are passed" do
@@ -58,7 +53,7 @@ RSpec.describe Cattri::Visibility do
   describe "#private" do
     it "sets visibility to private when no args are passed" do
       klass.private
-      expect(klass.visibility_value).to eq(:private)
+      expect(klass.send(:__cattri_visibility)).to eq(:private)
     end
 
     it "delegates to Module#private when args are passed" do

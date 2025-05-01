@@ -3,58 +3,88 @@
 require "spec_helper"
 
 RSpec.describe Cattri::Introspection do
-  let(:test_class) do
+  let(:klass) do
     Class.new do
-      include Cattri::Introspection
-    end
-  end
-
-  let(:attrs_class) do
-    Class.new(test_class) do
       include Cattri
-
-      cattr :c_test, default: "default"
-      iattr :i_test, default: "default"
-      iattr_writer :i_write_only
+      cattri :foo, 123
     end
   end
 
-  describe ".snapshot_class_attributes" do
-    subject { attrs_class }
-
-    it "returns an empty hash when Cattri::ClassAttributes is not extended" do
-      expect(test_class.snapshot_class_attributes).to eq({})
-    end
-
-    it "returns the current snapshot of class attribute values" do
-      expect(subject.snapshot_class_attributes).to eq({ c_test: "default" })
-
-      subject.c_test = "updated"
-      expect(subject.snapshot_class_attributes).to eq({ c_test: "updated" })
-    end
-
-    it "has the snapshot_cattrs alias" do
-      expect(subject.method(:snapshot_cattrs)).to eq(subject.method(:snapshot_class_attributes))
+  let(:subclass) do
+    Class.new(klass) do
+      include Cattri::Introspection
+      cattri :bar, "bar"
     end
   end
 
-  describe "#snapshot_instance_attributes" do
-    subject { attrs_class.new }
+  before do
+    klass.include(Cattri::Introspection)
+  end
 
-    it "returns an empty hash when Cattri::InstanceAttributes is not included" do
-      expect(test_class.new.snapshot_instance_attributes).to eq({})
+  describe ".attribute_defined?" do
+    it "returns true for defined attributes" do
+      expect(klass.attribute_defined?(:foo)).to be true
     end
 
-    it "returns the current snapshot of instance attribute values" do
-      expect(subject.snapshot_instance_attributes).to eq({ i_test: "default", i_write_only: nil })
+    it "returns false for unknown attributes" do
+      expect(klass.attribute_defined?(:missing)).to be false
+    end
+  end
 
-      subject.i_test = "updated"
-      subject.i_write_only = "updated"
-      expect(subject.snapshot_instance_attributes).to eq({ i_test: "updated", i_write_only: "updated" })
+  describe ".attribute" do
+    it "returns the attribute definition" do
+      attr = klass.attribute(:foo)
+      expect(attr).to be_a(Cattri::Attribute)
+      expect(attr.name).to eq(:foo)
     end
 
-    it "has the snapshot_iattrs alias" do
-      expect(subject.method(:snapshot_iattrs)).to eq(subject.method(:snapshot_instance_attributes))
+    it "returns nil for unknown attributes" do
+      expect(klass.attribute(:missing)).to be_nil
+    end
+  end
+
+  describe ".attributes" do
+    it "lists local attributes by default" do
+      expect(subclass.attributes).to eq([:bar])
+    end
+
+    it "includes inherited attributes when requested" do
+      expect(subclass.attributes(with_ancestors: true)).to match_array(%i[foo bar])
+    end
+  end
+
+  describe ".attribute_definitions" do
+    it "returns a hash of defined attributes" do
+      defs = subclass.attribute_definitions
+      expect(defs).to be_a(Hash)
+      expect(defs).to have_key(:bar)
+      expect(defs[:bar]).to be_a(Cattri::Attribute)
+    end
+
+    it "includes ancestors if requested" do
+      defs = subclass.attribute_definitions(with_ancestors: true)
+      expect(defs).to have_key(:foo)
+      expect(defs[:foo]).to be_a(Cattri::Attribute)
+    end
+  end
+
+  describe ".attribute_methods" do
+    it "returns a hash of methods per attribute" do
+      methods = subclass.attribute_methods
+      expect(methods).to be_a(Hash)
+      expect(methods.keys).to include(:bar)
+      expect(methods[:bar]).to include(:bar)
+    end
+  end
+
+  describe ".attribute_source" do
+    it "returns the class where the attribute was originally defined" do
+      expect(subclass.attribute_source(:foo)).to eq(klass)
+      expect(subclass.attribute_source(:bar)).to eq(subclass)
+    end
+
+    it "returns nil for unknown attributes" do
+      expect(subclass.attribute_source(:missing)).to be_nil
     end
   end
 end

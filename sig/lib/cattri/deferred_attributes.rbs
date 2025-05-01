@@ -1,0 +1,53 @@
+module Cattri
+  # Provides support for defining attributes within a module that should be
+  # applied later to any class or module that includes or extends it.
+  #
+  # This allows DSL modules to define Cattri attributes without prematurely
+  # applying them to themselves, deferring application to the including/extending context.
+  module DeferredAttributes
+    @deferred_attributes: ::Hash[::Symbol, Attribute]
+
+    # Hook into the module extension lifecycle to ensure deferred attributes are
+    # applied when the module is included or extended.
+    #
+    # @param base [Module] the module that extended this module
+    # @return [void]
+    def self.extended: (::Module base) -> void
+
+    # Hook methods for inclusion/extension that trigger deferred application.
+    module Hook
+      # Called when a module including `DeferredAttributes` is included into another module/class.
+      #
+      # @param target [Module] the including class or module
+      # @return [void]
+      def included: (::Module target) -> void
+
+      # Called when a module including `DeferredAttributes` is extended into another module/class.
+      #
+      # @param target [Module] the extending class or module
+      # @return [void]
+      def extended: (::Module target) -> void
+    end
+
+    # Registers an attribute to be applied later when this module is included or extended.
+    #
+    # @param attribute [Cattri::Attribute] the attribute to defer
+    # @return [void]
+    def defer_attribute: (Attribute attribute) -> void
+
+    # Applies all deferred attributes to the target class or module.
+    #
+    # This is triggered automatically by the {Hook} on `included` or `extended`.
+    #
+    # @param target [Module] the class or module to apply the attributes to
+    # @return [void]
+    def apply_deferred_attributes: (::Module target) -> void
+
+    private
+
+    # Internal storage of deferred attributes for this module.
+    #
+    # @return [Hash{Symbol => Cattri::Attribute}]
+    def deferred_attributes: () -> ::Hash[::Symbol, Attribute]
+  end
+end

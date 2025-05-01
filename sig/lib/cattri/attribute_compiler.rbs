@@ -1,0 +1,61 @@
+module Cattri
+  # @internal
+  #
+  # Responsible for defining methods on the target class/module
+  # based on the metadata in a {Cattri::Attribute}.
+  #
+  # This includes:
+  # - callable accessors (acting as both reader and writer)
+  # - predicate methods
+  # - explicit writers (`:name=` methods)
+  #
+  # Handles both instance and class-level attributes, including
+  # memoization and validation of default values for final attributes.
+  class AttributeCompiler
+    # Defines accessor methods for the given attribute in the provided context.
+    #
+    # For `final` + `class_attribute` attributes, the default is eagerly assigned.
+    # Then, if permitted by `expose`, the reader, writer, and/or predicate methods are defined.
+    #
+    # @param attribute [Cattri::Attribute] the attribute to define
+    # @param context [Cattri::Context] the target context for method definition
+    # @return [void]
+    def self.define_accessor: (Attribute attribute, Context context) -> void
+
+    private
+
+    # Defines a callable method that acts as both getter and setter.
+    #
+    # If called with no arguments, it returns the default (memoized).
+    # If called with arguments, it processes the assignment and writes the value.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @param context [Cattri::Context]
+    # @return [void]
+    def self.define_accessor!: (Attribute attribute, Context context) -> void
+
+    # Defines a writer method `:name=`, assigning a transformed value to the backing store.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @param context [Cattri::Context]
+    # @return [void]
+    def self.define_writer!: (Attribute attribute, Context context) -> void
+
+    # Defines a predicate method `:name?` that returns the truthiness of the value.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @param context [Cattri::Context]
+    # @return [void]
+    def self.define_predicate!: (Attribute attribute, Context context) -> void
+
+    # Returns the default value for the attribute, memoizing it in the backing store.
+    #
+    # For `final` attributes, raises unless explicitly initialized.
+    #
+    # @param receiver [Object] the instance or class receiving the value
+    # @param attribute [Cattri::Attribute]
+    # @return [Object] the stored or evaluated default
+    # @raise [Cattri::AttributeError] if final attribute is unset or evaluation fails
+    def self.memoize_default_value: (InternalStore receiver, Attribute attribute) -> untyped
+  end
+end
