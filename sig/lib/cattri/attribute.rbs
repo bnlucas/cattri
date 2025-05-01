@@ -1,0 +1,105 @@
+module Cattri
+  # @internal
+  #
+  # Attribute acts as a thin wrapper around AttributeOptions,
+  # exposing core attribute metadata and behavior in a safe, immutable way.
+  #
+  # Each Attribute instance represents a single logical property,
+  # and delegates its behavior (default, visibility, coercion, etc.) to its associated AttributeOptions.
+  #
+  # @example
+  #   attribute = Attribute.new(:enabled, default: true, expose: :read_write)
+  #   attribute.name          # => :enabled
+  #   attribute.default.call  # => true
+  #   attribute.expose        # => :read_write
+  class Attribute
+    @options: AttributeOptions
+
+    @defined_in: ::Module
+
+    # @return [Module] the class or module this attribute was defined in
+    attr_reader defined_in: ::Module
+
+    # Initializes a new attribute definition.
+    #
+    # @param name [Symbol, String] the attribute name
+    # @param defined_in [Module] the class or module where this attribute is defined
+    # @param options [Hash] configuration options
+    # @option options [Boolean] :class whether the attribute is class-level (internally mapped to :class_attribute)
+    # @param transformer [Proc] optional block used to coerce/validate assigned values
+    def initialize: (identifier name, defined_in: ::Module, **attribute_options options) { (?) -> untyped } -> void
+
+    # Serializes this attribute and its configuration to a frozen hash.
+    #
+    # @return [Hash<Symbol, Object>]
+    def to_h: () -> ::Hash[::Symbol, untyped]
+
+    # @return [Symbol] the canonical name of the attribute
+    def name: () -> ::Symbol
+
+    # @return [Symbol] the backing instance variable (e.g., :@enabled)
+    def ivar: () -> ::Symbol
+
+    # @return [Proc] a callable lambda for the attribute’s default value
+    def default: () -> ::Proc
+
+    # @return [Proc] a callable transformer used to process assigned values
+    def transformer: () -> ::Proc
+
+    # @return [Symbol] method exposure type (:read, :write, :read_write, or :none)
+    def expose: () -> expose_types
+
+    # @return [Symbol] method visibility (:public, :protected, :private)
+    def visibility: () -> visibility_types
+
+    # @return [Boolean] whether the reader should remain internal
+    def internal_reader?: () -> bool
+
+    # @return [Boolean] whether the writer should remain internal
+    def internal_writer?: () -> bool
+
+    # @return [Boolean] whether the attribute allows reading
+    def readable?: () -> bool
+
+    # @return [Boolean] whether the attribute allows writing
+    def writable?: () -> bool
+
+    # @return [Boolean] whether the attribute is marked readonly
+    def readonly?: () -> bool
+
+    # @return [Boolean] whether the attribute is marked final (write-once)
+    def final?: () -> bool
+
+    # @return [Boolean] whether the attribute is class-level
+    def class_attribute?: () -> bool
+
+    # @return [Boolean] whether the attribute defines a predicate method (`:name?`)
+    def with_predicate?: () -> bool
+
+    # Returns the methods that will be defined for this attribute.
+    #
+    # Includes the base accessor, optional writer, and optional predicate.
+    #
+    # @return [Array<Symbol>] a list of method names
+    def allowed_methods: () -> ::Array[::Symbol]
+
+    # Validates whether this attribute is assignable in the current context.
+    #
+    # @raise [Cattri::AttributeError] if assignment is disallowed
+    def validate_assignment!: () -> void
+
+    # Resolves the default value for this attribute.
+    #
+    # @return [Object] the evaluated default
+    # @raise [Cattri::AttributeError] if default evaluation fails
+    def evaluate_default: () -> untyped
+
+    # Processes and transforms an incoming assignment for this attribute.
+    #
+    # @param args [Array] positional arguments to pass to the transformer
+    # @param kwargs [Hash] keyword arguments to pass to the transformer
+    # @return [Object] the transformed value
+    # @raise [Cattri::AttributeError] if transformation fails
+    def process_assignment: (*untyped args, **untyped kwargs) -> untyped
+  end
+end

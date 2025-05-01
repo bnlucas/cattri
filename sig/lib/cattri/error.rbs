@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 module Cattri
   # Base error class for all exceptions raised by Cattri.
   #
@@ -16,10 +14,7 @@ module Cattri
     #
     # @param msg [String, nil] the error message
     # @param backtrace [Array<String>] optional backtrace (defaults to `caller`)
-    def initialize(msg = nil, backtrace = caller)
-      super(msg)
-      set_backtrace(backtrace)
-    end
+    def initialize: (?::String? msg, ?::Array[::String] backtrace) -> void
   end
 
   # Raised for any attribute-related definition or usage failure.
@@ -28,5 +23,6 @@ module Cattri
   # write attempts on `final` attributes.
   #
   # @see Cattri::Error
-  class AttributeError < Error; end
+  class AttributeError < Error
+  end
 end

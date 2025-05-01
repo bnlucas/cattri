@@ -1,204 +1,168 @@
 # frozen_string_literal: true
 
-require_relative "error"
+require_relative "attribute_options"
 
 module Cattri
-  # Represents a single attribute definition in Cattri.
+  # @internal
   #
-  # This class encapsulates metadata and behavior for a declared attribute,
-  # including name, visibility, default value, and setter coercion logic.
+  # Attribute acts as a thin wrapper around AttributeOptions,
+  # exposing core attribute metadata and behavior in a safe, immutable way.
   #
-  # It is used internally by the DSL to configure how accessors are defined,
-  # memoized, and resolved at runtime.
+  # Each Attribute instance represents a single logical property,
+  # and delegates its behavior (default, visibility, coercion, etc.) to its associated AttributeOptions.
+  #
+  # @example
+  #   attribute = Attribute.new(:enabled, default: true, expose: :read_write)
+  #   attribute.name          # => :enabled
+  #   attribute.default.call  # => true
+  #   attribute.expose        # => :read_write
   class Attribute
-    # Supported attribute scopes within Cattri.
-    ATTRIBUTE_TYPES = %i[class instance].freeze
-
-    # Supported Ruby method visibility levels.
-    ACCESS_LEVELS = %i[public protected private].freeze
-
-    # Ruby value types considered safe to reuse as-is (no `#dup` needed).
-    SAFE_VALUE_TYPES = [Numeric, Symbol, TrueClass, FalseClass, NilClass].freeze
-
-    # Default options for class-level attributes.
-    DEFAULT_CLASS_ATTRIBUTE_OPTIONS = {
-      readonly: false,
-      instance_reader: true,
-      predicate: false
-    }.freeze
-
-    # Default options for instance-level attributes.
-    DEFAULT_INSTANCE_ATTRIBUTE_OPTIONS = {
-      reader: true,
-      writer: true,
-      predicate: false
-    }.freeze
-
-    # @return [Symbol] the attribute name
-    attr_reader :name
-
-    # @return [Symbol] the attribute type (:class or :instance)
-    attr_reader :type
-
-    # @return [Symbol] the associated instance variable (e.g., :@items)
-    attr_reader :ivar
-
-    # @return [Symbol] the access level (:public, :protected, :private)
-    attr_reader :access
-
-    # @return [Proc] the normalized default value block
-    attr_reader :default
-
-    # @return [Proc] the setter function used to assign values
-    attr_reader :setter
+    # @return [Module] the class or module this attribute was defined in
+    attr_reader :defined_in
 
     # Initializes a new attribute definition.
     #
-    # @param name [String, Symbol] the name of the attribute
-    # @param type [Symbol] either :class or :instance
-    # @param options [Hash] additional attribute configuration
-    # @param block [Proc, nil] optional block for setter coercion
+    # @param name [Symbol, String] the attribute name
+    # @param defined_in [Module] the class or module where this attribute is defined
+    # @param options [Hash] configuration options
+    # @option options [Boolean] :scope whether the attribute is class-level (internally mapped to :class_attribute)
+    # @param transformer [Proc] optional block used to coerce/validate assigned values
+    def initialize(name, defined_in:, **options, &transformer)
+      @options = Cattri::AttributeOptions.new(name, transformer: transformer, **options)
+      @defined_in = defined_in
+    end
+
+    # Serializes this attribute and its configuration to a frozen hash.
     #
-    # @raise [Cattri::UnsupportedTypeError] if an invalid type is provided
-    def initialize(name, type, options, block)
-      @type = type.to_sym
-      raise Cattri::UnsupportedTypeError, type unless ATTRIBUTE_TYPES.include?(@type)
-
-      @name = name.to_sym
-      @ivar = normalize_ivar(options[:ivar])
-      @access = options[:access] || :public
-      @default = normalize_default(options[:default])
-      @setter = normalize_setter(block)
-      @options = typed_options(options)
-    end
-
-    # Hash-like access to option values or metadata.
-    #
-    # @param key [Symbol, String]
-    # @return [Object]
-    def [](key)
-      to_hash[key.to_sym]
-    end
-
-    # Serializes this attribute to a hash, including core properties and type-specific flags.
-    #
-    # @return [Hash]
-    def to_hash
-      @to_hash ||= {
-        name: @name,
-        ivar: @ivar,
-        type: @type,
-        access: @access,
-        default: @default,
-        setter: @setter
-      }.merge(@options)
-    end
-
-    alias to_h to_hash
-
-    # @return [Boolean] true if the attribute is class-scoped
-    def class_level?
-      type == :class
-    end
-
-    # @return [Boolean] true if the attribute is instance-scoped
-    def instance_level?
-      type == :instance
-    end
-
-    # @return [Boolean] whether the attribute is public
-    def public?
-      access == :public
-    end
-
-    # @return [Boolean] whether the attribute is protected
-    def protected?
-      access == :protected
-    end
-
-    # @return [Boolean] whether the attribute is private
-    def private?
-      access == :private
-    end
-
-    # Invokes the default value logic for the attribute.
-    #
-    # @return [Object] the default value for the attribute
-    # @raise [Cattri::AttributeError] if the default value logic raises an error
-    def invoke_default
-      default.call
-    rescue StandardError => e
-      raise Cattri::AttributeError, "Failed to evaluate the default value for :#{name}. Error: #{e.message}"
-    end
-
-    # Invokes the setter function with error handling
-    #
-    # @param args [Array] the positional arguments
-    # @param kwargs [Hash] the keyword arguments
-    # @raise [Cattri::AttributeError] if setter raises an error
-    # @return [Object] the value returned by the setter
-    def invoke_setter(*args, **kwargs)
-      setter.call(*args, **kwargs)
-    rescue StandardError => e
-      raise Cattri::AttributeError, "Failed to evaluate the setter for :#{name}. Error: #{e.message}"
-    end
-
-    private
-
-    # Applies class- or instance-level defaults and filters valid option keys.
-    #
-    # @param options [Hash]
-    # @return [Hash]
-    def typed_options(options)
-      defaults = type == :class ? DEFAULT_CLASS_ATTRIBUTE_OPTIONS : DEFAULT_INSTANCE_ATTRIBUTE_OPTIONS
-      defaults.merge(options.slice(*defaults.keys))
-    end
-
-    # Normalizes the instance variable name for the attribute.
-    #
-    # @param ivar [String, Symbol, nil]
-    # @return [Symbol]
-    def normalize_ivar(ivar)
-      ivar ||= name
-      :"@#{ivar.to_s.delete_prefix("@")}"
-    end
-
-    # Returns the setter proc. If no block is provided, uses default logic:
-    # - Returns kwargs if given
-    # - Returns the single positional argument if one
-    # - Returns all args as an array otherwise
-    #
-    # @param block [Proc, nil]
-    # @return [Proc]
-    def normalize_setter(block)
-      block || lambda { |*args, **kwargs|
-        return kwargs unless kwargs.empty?
-        return args.first if args.length == 1
-
-        args
+    # @return [Hash<Symbol, Object>]
+    def to_h
+      {
+        name: @options.name,
+        ivar: @options.ivar,
+        defined_in: @defined_in,
+        final: @options.final,
+        scope: @options.scope,
+        predicate: @options.predicate,
+        default: @options.default,
+        transformer: @options.transformer,
+        expose: @options.expose,
+        visibility: @options.visibility
       }
     end
 
-    # Wraps the default value in a memoized lambda.
-    #
-    # If value is already callable, returns it.
-    # If immutable, wraps it in a lambda.
-    # If mutable, wraps it in a lambda that calls `#dup`.
-    #
-    # @param default [Object, Proc, nil]
-    # @return [Proc]
-    def normalize_default(default)
-      return default if default.respond_to?(:call)
-      return -> { default } if default.frozen? || SAFE_VALUE_TYPES.any? { |type| default.is_a?(type) }
+    # @!attribute [r] name
+    #   @return [Symbol] the canonical name of the attribute
 
-      lambda {
-        begin
-          default.dup
-        rescue StandardError => e
-          raise Cattri::AttributeError,
-                "Failed to duplicate default value for :#{name}. Error: #{e.message}"
-        end
-      }
+    # @!attribute [r] ivar
+    #   @return [Symbol] the backing instance variable (e.g., :@enabled)
+
+    # @!attribute [r] default
+    #   @return [Proc] a callable lambda for the attribute’s default value
+
+    # @!attribute [r] transformer
+    #   @return [Proc] a callable transformer used to process assigned values
+
+    # @!attribute [r] expose
+    #   @return [Symbol] method exposure type (:read, :write, :read_write, or :none)
+
+    # @!attribute [r] visibility
+    #   @return [Symbol] method visibility (:public, :protected, :private)
+
+    %i[
+      name
+      ivar
+      default
+      transformer
+      expose
+      visibility
+    ].each do |option|
+      define_method(option) { @options.public_send(option) }
+    end
+
+    # @return [Boolean] whether the reader should remain internal
+    def internal_reader?
+      %i[write none].include?(@options.expose)
+    end
+
+    # @return [Boolean] whether the writer should remain internal
+    def internal_writer?
+      %i[read none].include?(@options.expose)
+    end
+
+    # @return [Boolean] whether the attribute allows reading
+    def readable?
+      %i[read read_write].include?(@options.expose)
+    end
+
+    # @return [Boolean] whether the attribute allows writing
+    def writable?
+      return false if @options.expose == :none
+
+      !readonly?
+    end
+
+    # @return [Boolean] whether the attribute is marked readonly
+    def readonly?
+      return false if @options.expose == :none
+
+      @options.expose == :read || final?
+    end
+
+    # @return [Boolean] whether the attribute is marked final (write-once)
+    def final?
+      @options.final
+    end
+
+    # @return [Boolean] whether the attribute is class-level
+    def class_attribute?
+      @options.scope == :class
+    end
+
+    # @return [Boolean] whether the attribute defines a predicate method (`:name?`)
+    def with_predicate?
+      @options.predicate
+    end
+
+    # Returns the methods that will be defined for this attribute.
+    #
+    # Includes the base accessor, optional writer, and optional predicate.
+    #
+    # @return [Array<Symbol>] a list of method names
+    def allowed_methods
+      [name, (:"#{name}=" if writable?), (:"#{name}?" if with_predicate?)].compact.freeze
+    end
+
+    # Validates whether this attribute is assignable in the current context.
+    #
+    # @raise [Cattri::AttributeError] if assignment is disallowed
+    def validate_assignment!
+      if final?
+        raise Cattri::AttributeError, "Cannot assign to final attribute `:#{name}`"
+      elsif readonly?
+        raise Cattri::AttributeError, "Cannot assign to readonly attribute `:#{name}`"
+      end
+    end
+
+    # Resolves the default value for this attribute.
+    #
+    # @return [Object] the evaluated default
+    # @raise [Cattri::AttributeError] if default evaluation fails
+    def evaluate_default
+      @options.default.call
+    rescue StandardError => e
+      raise Cattri::AttributeError, "Failed to evaluate the default value for `:#{@options.name}`. Error: #{e.message}"
+    end
+
+    # Processes and transforms an incoming assignment for this attribute.
+    #
+    # @param args [Array] positional arguments to pass to the transformer
+    # @param kwargs [Hash] keyword arguments to pass to the transformer
+    # @return [Object] the transformed value
+    # @raise [Cattri::AttributeError] if transformation fails
+    def process_assignment(*args, **kwargs)
+      @options.transformer.call(*args, **kwargs)
+    rescue StandardError => e
+      raise Cattri::AttributeError, "Failed to evaluate the setter for `:#{@options.name}`. Error: #{e.message}"
     end
   end
 end

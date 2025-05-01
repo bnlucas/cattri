@@ -1,3 +1,44 @@
+## [0.2.0] - 2025-05-01
+
+### Changed
+
+- Replaced `cattr` and `iattr` with unified `cattri` DSL
+  - All attributes now use `cattri`, with `scope: :class` or `scope: :instance`
+  - `iattr` and `cattr` are no longer public API
+
+- Attribute behavior is now centralized via:
+  - `Cattri::Attribute` and `Cattri::AttributeOptions`
+  - `Cattri::Context` and `ContextRegistry`
+  - `Cattri::InternalStore` for safe write-once value storage
+
+- Final attributes (`final: true`) now enforced at the store level, with safe write-once semantics
+- Visibility and exposure are fully separated:
+  - `visibility: :public|:protected|:private` sets method scope
+  - `expose: :read_write|:read|:write|:none` controls which methods are generated
+- New predicate handling via `predicate: true`, with visibility inheritance
+
+### Added
+
+- Support for `scope:` to explicitly declare attribute scope
+- `InitializerPatch` to apply default values for `final` instance attributes
+- `memoize_default_value` helper to simplify accessor generation
+- 100% RSpec coverage and branch coverage
+- Steep RBS type signatures for public and internal API
+- Full introspection via `.attributes`, `.attribute`, `.attribute_methods`, `.attribute_source`
+
+### Removed
+
+- `iattr`, `cattr`, `iattr_alias`, `cattr_alias`, and setter helpers (`*_setter`)
+- Legacy inheritance hook logic and module-style patching
+
+### Notes
+
+This release consolidates and simplifies the attribute system into a modern, safer, and more flexible DSL. All existing functionality is preserved through the `cattri` interface.
+
+This version introduces **breaking changes** to the DSL. Migration guide available in the README.
+
+---
+
 ## [0.1.3] - 2025-04-22
 
 ### Added

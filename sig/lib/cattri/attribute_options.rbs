@@ -1,0 +1,150 @@
+module Cattri
+  # @internal
+  #
+  # AttributeOptions encapsulates normalized metadata for a single Cattri-defined attribute.
+  #
+  # It validates, transforms, and freezes all input during initialization,
+  # ensuring attribute safety and immutability at runtime.
+  #
+  # @example
+  #   options = AttributeOptions.new(:enabled, default: true, expose: :read_write)
+  #   options.name         # => :enabled
+  #   options.default.call # => true
+  #   options.expose       # => :read_write
+  class AttributeOptions
+    @name: ::Symbol
+
+    @ivar: ::Symbol
+
+    @final: bool
+
+    @scope: scope_types
+
+    @predicate: bool
+
+    @default: ::Proc
+
+    @transformer: ::Proc
+
+    @expose: expose_types
+
+    @visibility: visibility_types
+
+    # Validates and normalizes the `expose` configuration.
+    #
+    # @param expose [Symbol, String] one of: :read, :write, :read_write, :none
+    # @return [Symbol]
+    # @raise [Cattri::AttributeError] if the value is invalid
+    def self.validate_expose!: (expose_types | identifier expose) -> untyped
+
+    # Validates and normalizes method visibility.
+    #
+    # @param visibility [Symbol, String] one of: :public, :protected, :private
+    # @return [Symbol]
+    # @raise [Cattri::AttributeError] if the value is invalid
+    def self.validate_visibility!: (visibility_types | identifier visibility) -> untyped
+
+    # Valid method visibility levels.
+    VISIBILITIES: ::Array[visibility_types]
+
+    # Valid expose options for method generation.
+    EXPOSE_OPTIONS: ::Array[expose_types]
+
+    # Valid scope types.
+    SCOPES: ::Array[scope_types]
+
+    # Built-in Ruby value types that are safe to reuse as-is (no dup needed).
+    SAFE_VALUE_TYPES: ::Array[untyped]
+
+    attr_reader name: ::Symbol
+
+    attr_reader ivar: ::Symbol
+
+    attr_reader final: bool
+
+    attr_reader scope: scope_types
+
+    attr_reader predicate: bool
+
+    attr_reader default: ::Proc
+
+    attr_reader transformer: ::Proc
+
+    attr_reader expose: expose_types
+
+    attr_reader visibility: visibility_types
+
+    # Initializes a frozen attribute configuration.
+    #
+    # @param name [Symbol, String] the attribute name
+    # @param ivar [Symbol, String, nil] optional custom instance variable name
+    # @param final [Boolean] marks the attribute as write-once
+    # @param class_attribute [Boolean] indicates if the attribute is class-level
+    # @param predicate [Boolean] whether to define a `?` predicate method
+    # @param default [Object, Proc, nil] default value or callable
+    # @param transformer [Proc, nil] optional coercion block
+    # @param expose [Symbol] access level to define (:read, :write, :read_write, :none)
+    # @param visibility [Symbol] method visibility (:public, :protected, :private)
+    def initialize: (
+        identifier name,
+        ?ivar: identifier?,
+        ?final: bool,
+        ?scope: scope_types,
+        ?predicate: bool,
+        ?default: untyped,
+        ?transformer: ::Proc?,
+        ?expose: expose_types,
+        ?visibility: visibility_types
+      ) -> void
+
+    # Returns a frozen hash representation of this option set.
+    #
+    # @return [Hash<Symbol, Object>]
+    def to_h: () -> ::Hash[::Symbol, untyped]
+
+    # Allows hash-style access to the option set.
+    #
+    # @param key [Symbol, String]
+    # @return [Object]
+    def []: (untyped key) -> untyped
+
+    private
+
+    # Normalizes the instance variable name, defaulting to @name.
+    #
+    # @param ivar [String, Symbol, nil]
+    # @return [Symbol]
+    def normalize_ivar: (identifier? ivar) -> ::Symbol
+
+    # Wraps the default in a Proc with immutability protection.
+    #
+    # - Returns original Proc if given.
+    # - Wraps immutable types as-is.
+    # - Duplicates mutable values at runtime.
+    #
+    # @param default [Object, Proc, nil]
+    # @return [Proc]
+    def normalize_default: (::Proc | untyped default) -> ::Proc
+
+    # Returns a normalized assignment transformer.
+    #
+    # Falls back to a default transformer that returns:
+    # - `kwargs` if `args.empty?`
+    # - the single argument if one is passed
+    # - `[*args, kwargs]` otherwise
+    #
+    # @param transformer [Proc, nil]
+    # @return [Proc]
+    def normalize_transformer: (::Proc? transformer) -> ::Proc
+
+    # Validates and normalizes the provided scope value.
+    #
+    # If `scope` is `nil`, it defaults to `:instance`. If it's one of the allowed
+    # values (`:class`, `:instance`), it is returned as-is. Otherwise, an error is raised.
+    #
+    # @param scope [Symbol, nil] the requested attribute scope
+    # @return [Symbol] the validated scope (`:class` or `:instance`)
+    # @raise [Cattri::AttributeError] if the scope is invalid
+    def validate_scope!: (scope_types scope) -> ::Symbol
+  end
+end

@@ -1,14 +1,3 @@
-# frozen_string_literal: true
-
-require_relative "cattri/attribute"
-require_relative "cattri/context_registry"
-require_relative "cattri/dsl"
-require_relative "cattri/inheritance"
-require_relative "cattri/initializer_patch"
-require_relative "cattri/internal_store"
-require_relative "cattri/introspection"
-require_relative "cattri/visibility"
-
 # Main entrypoint for the Cattri DSL.
 #
 # When included in a class or module, this installs both class-level and instance-level
@@ -21,6 +10,8 @@ require_relative "cattri/visibility"
 # - Write-once semantics for `final: true` attributes
 # - Safe method generation with introspection support
 module Cattri
+  VERSION: ::String
+
   # Sets up the Cattri DSL on the including class or module.
   #
   # Includes internal storage and registry infrastructure into both the base and its singleton class,
@@ -29,19 +20,7 @@ module Cattri
   #
   # @param base [Class, Module] the target that includes `Cattri`
   # @return [void]
-  def self.included(base)
-    [base, base.singleton_class].each do |mod|
-      mod.include(Cattri::InternalStore)
-      mod.include(Cattri::ContextRegistry)
-    end
-
-    base.prepend(Cattri::InitializerPatch)
-    base.extend(Cattri::Visibility)
-    base.extend(Cattri::Dsl)
-    base.extend(ClassMethods)
-
-    Cattri::Inheritance.install(base)
-  end
+  def self.included: (::Module base) -> void
 
   # Provides opt-in class-level introspection support.
   #
@@ -51,8 +30,8 @@ module Cattri
     # Enables Cattri's attribute introspection methods on the current class.
     #
     # @return [void]
-    def with_cattri_introspection
-      include(Cattri::Introspection) # steep:ignore
-    end
+    def with_cattri_introspection: () -> void
+
+    include Introspection
   end
 end
