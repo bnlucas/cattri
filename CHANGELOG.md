@@ -1,3 +1,25 @@
+## [0.2.1] - 2025-05-01
+
+- Fixed an issue where only `final: true` instance variables defined on the current/class had their values applied.
+  - Now walks the ancestor tree to ensure all attributes get set.
+
+  ```ruby
+  module Options
+    include Cattri
+
+    cattri :enabled, true, final: true # wasn't being set previously
+  end
+
+  class Attribute
+    include Options
+  
+    def initialize(enabled: true)
+      seld.enabled = enabled
+    end
+  end
+  ```
+- Cleanup of `cattri.gemspec` and `bin/console`.
+
 ## [0.2.0] - 2025-05-01
 
 ### Changed

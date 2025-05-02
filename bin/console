@@ -4,30 +4,5 @@
 require "bundler/setup"
 require "cattri"
 
-# You can add fixtures and/or initialization code here to make experimenting
-# with your gem easier. You can also use a different console, if you like.
-
-# class Tester
-#   include Cattri
-#
-#   cattr :public_attr, default: 1
-#
-#   protected
-#   cattr :protected_attr, default: 2
-#
-#   private
-#   cattr :private_attr, default: 3
-#
-#   class << self
-#     def protected_proxy
-#       self.protected_attr
-#     end
-#
-#     def private_proxy
-#       self.private_attr
-#     end
-#   end
-# end
-
 require "irb"
 IRB.start(__FILE__)
