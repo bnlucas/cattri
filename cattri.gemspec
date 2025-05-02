@@ -22,7 +22,7 @@ Gem::Specification.new do |spec|
   spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir.chdir(__dir__) do
-    (`git ls-files -z`.split("\x0") + %w[README.md LICENSE]).uniq
+    (`git ls-files -z`.split("\x0") + %w[README.md LICENSE.txt]).uniq
   end
 
   # Runtime dependencies

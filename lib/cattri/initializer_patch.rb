@@ -26,7 +26,8 @@ module Cattri
     def initialize(*args, **kwargs, &block)
       super
 
-      self.class.send(:attribute_registry).registered_attributes.each_value do |attribute| # steep:ignore
+      registry = self.class.send(:attribute_registry)
+      registry.defined_attributes(with_ancestors: true).each_value do |attribute| # steep:ignore
         next if cattri_variable_defined?(attribute.ivar) # steep:ignore
         next unless attribute.final?
 

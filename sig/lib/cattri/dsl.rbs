@@ -28,7 +28,13 @@ module Cattri
     def cattri: (
         identifier? name,
         ?untyped? value,
-        **attribute_options options
+        ?ivar: identifier,
+        ?final: bool,
+        ?scope: scope_types,
+        ?predicate: bool,
+        ?default: ::Proc | untyped | nil,
+        ?expose: expose_types,
+        ?visibility: visibility_types
       ) { (?) -> untyped } -> ::Array[::Symbol]
 
     # Defines a write-once (final) attribute.
@@ -49,7 +55,12 @@ module Cattri
     def final_cattri: (
         identifier name,
         untyped value,
-        **attribute_options options
+        ?ivar: identifier,
+        ?scope: scope_types,
+        ?predicate: bool,
+        ?default: ::Proc | untyped | nil,
+        ?expose: expose_types,
+        ?visibility: visibility_types
       ) { (?) -> untyped } -> ::Array[::Symbol]
   end
 end
