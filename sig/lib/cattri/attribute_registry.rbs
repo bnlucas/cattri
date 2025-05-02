@@ -55,7 +55,13 @@ module Cattri
     def define_attribute: (
         identifier name,
         Proc | untyped value,
-        **attribute_options options
+        ?ivar: identifier,
+        ?final: bool,
+        ?scope: scope_types,
+        ?predicate: bool,
+        ?default: ::Proc | untyped | nil,
+        ?expose: expose_types,
+        ?visibility: visibility_types
       ) { (?) -> untyped } -> ::Array[::Symbol]
 
     # Copies registered attributes from this context to another,

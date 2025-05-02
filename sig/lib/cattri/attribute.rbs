@@ -27,7 +27,17 @@ module Cattri
     # @param options [Hash] configuration options
     # @option options [Boolean] :class whether the attribute is class-level (internally mapped to :class_attribute)
     # @param transformer [Proc] optional block used to coerce/validate assigned values
-    def initialize: (identifier name, defined_in: ::Module, **attribute_options options) { (?) -> untyped } -> void
+    def initialize: (
+        identifier name,
+        defined_in: ::Module,
+        ?ivar: identifier,
+        ?final: bool,
+        ?scope: scope_types,
+        ?predicate: bool,
+        ?default: ::Proc | untyped | nil,
+        ?expose: expose_types,
+        ?visibility: visibility_types
+      ) { (?) -> untyped } -> void
 
     # Serializes this attribute and its configuration to a frozen hash.
     #

@@ -6,14 +6,4 @@ module Cattri
   type expose_types = :read_write | :read | :write | :none
 
   type visibility_types = :public | :protected | :private
-
-  type attribute_options = {
-      ivar?: identifier,
-      final: bool,
-      scope?: scope_types,
-      predicate?: bool,
-      default?: ::Proc | untyped,
-      expose?: expose_types,
-      visibility?: visibility_types
-    }
 end

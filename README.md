@@ -55,7 +55,10 @@ class User
   cattri :id, -> { SecureRandom.uuid }, final: true
 
   # Writable instance-level attributes
-  cattri :name, "anonymous"
+  cattri :name, "anonymous" do |value|
+    value.to_s.capitalize # custom setter/coercer
+  end
+
   cattri :admin, false, predicate: true
 
   def initialize(id)
