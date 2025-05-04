@@ -3,8 +3,8 @@
 module Cattri
   # Cattri::Visibility tracks the current method visibility context (`public`, `protected`, `private`)
   # when defining methods dynamically. It mimics Ruby's native visibility behavior so that
-  # `cattr` and `iattr` definitions can automatically infer the intended access level
-  # based on the current context in the source file.
+  # `cattri` definitions can automatically infer the intended access level based on the current context
+  # in the source file.
   #
   # This module is intended to be extended by classes that include or extend Cattri.
   #
@@ -13,7 +13,7 @@ module Cattri
   #     include Cattri
   #
   #     private
-  #     cattr :sensitive_data
+  #     cattri :sensitive_data
   #   end
   #
   #   # => :sensitive_data will be defined as a private method

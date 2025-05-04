@@ -68,6 +68,24 @@ module Cattri
     # @return [Boolean]
     def method_defined?: (Attribute attribute, ?name: identifier?) -> bool
 
+    # Determines whether to define the method on the instance or singleton.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @return [Module]
+    def target_for: (Attribute attribute) -> ::Module
+
+    # Determines the object (class/module or runtime instance) that should hold
+    # the backing storage for the given attribute.
+    #
+    # - For class-level attributes, uses the singleton class of `defined_in` or the module itself
+    # - For instance-level attributes, uses the provided instance
+    #
+    # @param attribute [Cattri::Attribute]
+    # @param instance [Object, nil] the runtime instance, if needed for instance-level access
+    # @return [Object] the receiver for attribute value storage
+    # @raise [Cattri::Error] if instance is required but missing
+    def storage_receiver_for: (Attribute attribute, ::Object? instance) -> ::Object
+
     private
 
     # Internal tracking of explicitly defined methods per attribute.
@@ -75,11 +93,24 @@ module Cattri
     # @return [Hash{Symbol => Set<Symbol>}]
     def __cattri_defined_methods: () -> ::Hash[::Symbol, ::Set[::Symbol]]
 
-    # Determines whether to define the method on the instance or singleton.
+    # Determines whether the object is a singleton_class or not.
+    #
+    # @param obj [Object]
+    # @return [Boolean]
+    def singleton_class?: (untyped obj) -> bool
+
+    # Resolves the proper class-level storage receiver for the attribute.
     #
     # @param attribute [Cattri::Attribute]
-    # @return [Module]
-    def target_for: (Attribute attribute) -> ::Module
+    # @param instance [Object, nil]
+    # @return [Object]
+    def resolve_class_storage_for: (Attribute attribute, ::Object? instance) -> ::Object
+
+    # Installs the internal store on the receiver if not present.
+    #
+    # @param receiver [Object]
+    # @return [void]
+    def install_internal_store!: (::Object receiver) -> void
 
     # Defines the method and applies its access visibility.
     #

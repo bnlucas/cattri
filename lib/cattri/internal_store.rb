@@ -13,6 +13,17 @@ module Cattri
   #
   # It supports enforcement of `final` semantics and tracks explicit assignments.
   module InternalStore
+    # Returns the list of attribute keys stored by Cattri on this object.
+    #
+    # Mimics Ruby's `#instance_variables`, but only includes attributes defined
+    # via `cattri` and omits the leading `@` from names. All keys are returned as
+    # frozen symbols (e.g., `:enabled` instead of `:@enabled`).
+    #
+    # @return [Array<Symbol>] the list of internally tracked attribute keys
+    def cattri_variables
+      __cattri_store.keys.freeze
+    end
+
     # Checks whether the internal store contains a value for the given key.
     #
     # @param key [String, Symbol] the attribute name or instance variable

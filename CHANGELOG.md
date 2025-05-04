@@ -1,8 +1,44 @@
+## [0.2.2] - 2025-05-04
+
+No breaking changes – the public DSL (cattri, final_cattri) remains identical to v0.2.0.
+
+### Removed
+- Removed `Cattri::AttributeRegistry#copy_attributes_to` and all associated logic. Subclass attribute propagation
+  is now handled entirely via runtime resolution in `Context#storage_receiver_for`, eliminating the need for eager
+  copying of attribute values or metadata.
+- Removed `Cattri::Inheritance` and its use of `.inherited` hooks for subclass propagation, since all relevant state
+  is now derived dynamically.
+
+### Changed
+- Replaced static subclass propagation with dynamic storage resolution using `Context#storage_receiver_for`,
+  which now determines the correct backing object (instance, class, or singleton class) for all reads and writes.
+- `AttributeCompiler.define_accessor` now uses `storage_receiver_for` to set final class-level attribute values
+  during compilation.
+- Final class-level attributes (`final: true, scope: :class`) are now evaluated and written directly to the correct
+  storage receiver without relying on prior duplication logic.
+
+### Added
+- Proper support for defining attributes directly on a module’s singleton_class, ensuring values are stored and
+  accessed consistently across runtime and functional tests.
+  ```ruby
+  module MyModule
+    class << self
+      include Cattri
+  
+      cattri :version, "0.1.0", final: true, scope: :class
+    end
+  end
+  ```
+- Regression tests ensuring:
+  - Subclass attribute shadowing works for `final: true, scope: :class`. 
+  - Instance and class attribute isolation behaves as expected across inheritance chains. 
+  - No mutation of final attributes once defined.
+- Test coverage for `Context#storage_receiver` for and `Context#resolve_class_storage_for` across all branching logic.
+
 ## [0.2.1] - 2025-05-01
 
 - Fixed an issue where only `final: true` instance variables defined on the current/class had their values applied.
   - Now walks the ancestor tree to ensure all attributes get set.
-
   ```ruby
   module Options
     include Cattri

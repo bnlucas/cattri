@@ -22,7 +22,9 @@ module Cattri
     # @return [Module]
     attr_reader :target
 
-    # @param target [Module, Class]
+    # Initializes the context wrapper.
+    #
+    # @param target [Module, Class] the receiver where attributes are defined
     def initialize(target)
       @target = target
     end
@@ -102,6 +104,44 @@ module Cattri
         __cattri_defined_methods[attribute.name].include?(normalized_name)
     end
 
+    # Resolves and returns the module or class where methods and storage should be defined
+    # for the given attribute. Ensures the internal store is included on the resolved target.
+    #
+    # - For class-level attributes, this returns the singleton class unless it's already a singleton.
+    # - For instance-level attributes, this returns the class/module directly.
+    #
+    # @param attribute [Cattri::Attribute]
+    # @return [Module]
+    def target_for(attribute)
+      return @target if attribute.class_attribute? && singleton_class?(@target)
+
+      attribute.class_attribute? ? @target.singleton_class : @target
+    end
+
+    # Determines the object (class/module or runtime instance) that should hold
+    # the backing storage for the given attribute.
+    #
+    # - For class-level attributes, uses the singleton class of `defined_in` or the module itself
+    # - For instance-level attributes, uses the provided instance
+    #
+    # @param attribute [Cattri::Attribute]
+    # @param instance [Object, nil] the runtime instance, if needed for instance-level access
+    # @return [Object] the receiver for attribute value storage
+    # @raise [Cattri::Error] if instance is required but missing
+    def storage_receiver_for(attribute, instance = nil)
+      receiver =
+        if attribute.class_attribute?
+          resolve_class_storage_for(attribute, instance)
+        elsif instance
+          instance
+        else
+          raise Cattri::Error, "Missing runtime instance for instance-level attribute :#{attribute.name}"
+        end
+
+      install_internal_store!(receiver)
+      receiver
+    end
+
     private
 
     # Internal tracking of explicitly defined methods per attribute.
@@ -111,12 +151,42 @@ module Cattri
       @__cattri_defined_methods ||= Hash.new { |h, k| h[k] = Set.new }
     end
 
-    # Determines whether to define the method on the instance or singleton.
+    # Determines whether the object is a singleton_class or not.
+    #
+    # @param obj [Object]
+    # @return [Boolean]
+    def singleton_class?(obj)
+      obj.singleton_class? # Ruby 3.2+
+    rescue NoMethodError
+      obj.inspect.start_with?("#<Class:")
+    end
+
+    # Resolves the proper class-level storage receiver for the attribute.
     #
     # @param attribute [Cattri::Attribute]
-    # @return [Module]
-    def target_for(attribute)
-      attribute.class_attribute? ? @target.singleton_class : @target
+    # @param instance [Object, nil]
+    # @return [Object]
+    def resolve_class_storage_for(attribute, instance)
+      if attribute.final?
+        singleton_class?(attribute.defined_in) ? attribute.defined_in : attribute.defined_in.singleton_class
+      else
+        attribute_scope = instance || attribute.defined_in
+        attribute_scope.singleton_class
+      end
+    end
+
+    # Installs the internal store on the receiver if not present.
+    #
+    # @param receiver [Object]
+    # @return [void]
+    def install_internal_store!(receiver)
+      return if receiver.respond_to?(:cattri_variables)
+
+      if singleton_class?(receiver)
+        receiver.extend(Cattri::InternalStore)
+      else
+        receiver.include(Cattri::InternalStore) # steep:ignore
+      end
     end
 
     # Defines the method and applies its access visibility.
@@ -157,11 +227,9 @@ module Cattri
     #   - Returns `:private` for instance-level attributes
     # - Otherwise, returns the explicitly declared visibility (`attribute.visibility`)
     #
-    # This ensures that internal-only attributes remain inaccessible outside their scope,
-    # while still being usable by subclasses if class-level.
-    #
     # @param attribute [Cattri::Attribute]
-    # @return [Symbol]
+    # @param name [Symbol]
+    # @return [Symbol] one of `:public`, `:protected`, or `:private`
     def effective_visibility(attribute, name)
       return :protected if attribute.class_attribute? && internal_method?(attribute, name)
       return :private if !attribute.class_attribute? && internal_method?(attribute, name)
@@ -172,14 +240,9 @@ module Cattri
     # Determines whether the given method name (accessor or writer)
     # should be treated as internal-only based on the attribute's `expose` configuration.
     #
-    # This is used when resolving method visibility (e.g., private vs protected).
-    #
-    # - Writer methods (`:attr=`) are considered internal if the attribute lacks public read access.
-    # - Reader methods (`:attr`) are considered internal if the attribute lacks public write access.
-    #
-    # @param attribute [Cattri::Attribute] the attribute definition
-    # @param name [Symbol, String] the method name being defined
-    # @return [Boolean] true if the method should be scoped for internal use only
+    # @param attribute [Cattri::Attribute]
+    # @param name [Symbol, String]
+    # @return [Boolean]
     def internal_method?(attribute, name)
       return attribute.internal_writer? if name.to_s.end_with?("=")
 

@@ -26,7 +26,7 @@ RSpec.describe Cattri::AttributeCompiler do
 
       it "eagerly sets the default value on the target class" do
         described_class.define_accessor(attribute, context)
-        expect(dummy_class.cattri_variable_get(:count)).to eq(100)
+        expect(dummy_class.count).to eq(100)
       end
     end
 
@@ -134,46 +134,16 @@ RSpec.describe Cattri::AttributeCompiler do
   describe ".memoize_default_value" do
     let(:instance) { dummy_class.new }
 
-    context "non-final attribute" do
-      let(:attribute) do
-        Cattri::Attribute.new(
-          :foo,
-          defined_in: dummy_class,
-          default: -> { "bar" },
-          expose: :read_write
-        )
-      end
+    it "memoizes the evaluated default" do
+      attribute = Cattri::Attribute.new(
+        :foo,
+        defined_in: dummy_class,
+        default: -> { "bar" },
+        expose: :read_write
+      )
 
-      it "stores and returns the evaluated default" do
-        result = described_class.send(:memoize_default_value, instance, attribute)
-        expect(result).to eq("bar")
-        expect(instance.cattri_variable_get(:foo)).to eq("bar")
-      end
-    end
-
-    context "final attribute" do
-      let(:attribute) do
-        Cattri::Attribute.new(
-          :immutable,
-          defined_in: dummy_class,
-          final: true,
-          default: -> { "locked" },
-          expose: :read
-        )
-      end
-
-      it "raises if value is not already set" do
-        expect do
-          described_class.send(:memoize_default_value, instance, attribute)
-        end.to raise_error(Cattri::AttributeError, /Final attribute :immutable cannot be written to/)
-      end
-
-      it "returns value if already set" do
-        instance.cattri_variable_set(:immutable, "preset", final: true)
-        result = described_class.send(:memoize_default_value, instance, attribute)
-
-        expect(result).to eq("preset")
-      end
+      expect(described_class.send(:memoize_default_value, instance, attribute)).to eq("bar")
+      expect(instance.cattri_variable_get(:foo)).to eq("bar")
     end
   end
 end

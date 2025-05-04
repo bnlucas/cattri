@@ -117,43 +117,6 @@ RSpec.describe Cattri::AttributeRegistry do
     end
   end
 
-  describe "#copy_attributes_to" do
-    let(:target_klass) do
-      Class.new do
-        include Cattri
-      end
-    end
-
-    let!(:target_registry) { target_klass.send(:attribute_registry) }
-    let(:target_context) { Cattri::Context.new(target_klass) }
-
-    it "copies final class attributes and sets their values" do
-      registry.define_attribute(:enabled, "yes", scope: :class, final: true)
-      registry.context.target.cattri_variable_set(:@enabled, "yes")
-
-      registry.copy_attributes_to(target_context)
-
-      expect(target_klass.cattri_variable_get(:@enabled)).to eq("yes")
-      expect(target_registry.fetch_attribute(:enabled)).to be_a(Cattri::Attribute)
-    end
-
-    it "skips non-final or instance-level attributes" do
-      registry.define_attribute(:skipped1, "val", scope: :instance, final: true)
-      registry.define_attribute(:skipped2, "val", scope: :class, final: false)
-
-      expect do
-        registry.copy_attributes_to(target_context)
-      end.not_to(change { target_klass.send(:attribute_registry).defined_attributes })
-    end
-
-    it "restores original context after copying" do
-      original_context = registry.context
-      registry.copy_attributes_to(target_context)
-
-      expect(registry.context).to equal(original_context)
-    end
-  end
-
   describe "#validate_unique!" do
     context "when no attributes are registered" do
       it "returns without raising" do

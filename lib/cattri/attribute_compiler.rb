@@ -26,7 +26,8 @@ module Cattri
       def define_accessor(attribute, context)
         if attribute.class_attribute? && attribute.final?
           value = attribute.evaluate_default
-          context.target.cattri_variable_set(attribute.ivar, value) # steep:ignore
+          context.storage_receiver_for(attribute) # steep:ignore
+                 .cattri_variable_set(attribute.ivar, value, final: attribute.final?) # steep:ignore
         end
 
         return if attribute.expose == :none
@@ -48,12 +49,13 @@ module Cattri
       # @return [void]
       def define_accessor!(attribute, context)
         context.define_method(attribute) do |*args, **kwargs|
+          receiver = context.storage_receiver_for(attribute, self)
           readonly_call = args.empty? && kwargs.empty?
-          return AttributeCompiler.send(:memoize_default_value, self, attribute) if readonly_call
+          return AttributeCompiler.send(:memoize_default_value, receiver, attribute) if readonly_call
 
           attribute.validate_assignment!
           value = attribute.process_assignment(*args, **kwargs)
-          cattri_variable_set(attribute.ivar, value) # steep:ignore
+          receiver.cattri_variable_set(attribute.ivar, value) # steep:ignore
         end
       end
 
@@ -64,8 +66,10 @@ module Cattri
       # @return [void]
       def define_writer!(attribute, context)
         context.define_method(attribute, name: :"#{attribute.name}=") do |value|
+          receiver = context.storage_receiver_for(attribute, self)
+
           coerced_value = attribute.process_assignment(value)
-          cattri_variable_set(attribute.ivar, coerced_value, final: attribute.final?) # steep:ignore
+          receiver.cattri_variable_set(attribute.ivar, coerced_value, final: attribute.final?) # steep:ignore
         end
       end
 
@@ -82,19 +86,10 @@ module Cattri
 
       # Returns the default value for the attribute, memoizing it in the backing store.
       #
-      # For `final` attributes, raises unless explicitly initialized.
-      #
       # @param receiver [Object] the instance or class receiving the value
       # @param attribute [Cattri::Attribute]
       # @return [Object] the stored or evaluated default
-      # @raise [Cattri::AttributeError] if final attribute is unset or evaluation fails
       def memoize_default_value(receiver, attribute)
-        if attribute.final?
-          return receiver.cattri_variable_get(attribute.ivar) if receiver.cattri_variable_defined?(attribute.ivar)
-
-          raise Cattri::AttributeError, "Final attribute :#{attribute.name} cannot be written to"
-        end
-
         receiver.cattri_variable_memoize(attribute.ivar, final: attribute.final?) do
           attribute.evaluate_default
         end
