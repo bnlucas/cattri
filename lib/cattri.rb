@@ -3,7 +3,6 @@
 require_relative "cattri/attribute"
 require_relative "cattri/context_registry"
 require_relative "cattri/dsl"
-require_relative "cattri/inheritance"
 require_relative "cattri/initializer_patch"
 require_relative "cattri/internal_store"
 require_relative "cattri/introspection"
@@ -33,14 +32,16 @@ module Cattri
     [base, base.singleton_class].each do |mod|
       mod.include(Cattri::InternalStore)
       mod.include(Cattri::ContextRegistry)
+      mod.instance_variable_set(:@__cattri_base_target, base)
     end
+
+    base.extend(Cattri::InternalStore)
+    base.singleton_class.extend(Cattri::InternalStore)
 
     base.prepend(Cattri::InitializerPatch)
     base.extend(Cattri::Visibility)
     base.extend(Cattri::Dsl)
     base.extend(ClassMethods)
-
-    Cattri::Inheritance.install(base)
   end
 
   # Provides opt-in class-level introspection support.

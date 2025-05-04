@@ -31,7 +31,7 @@ module Cattri
         next if cattri_variable_defined?(attribute.ivar) # steep:ignore
         next unless attribute.final?
 
-        cattri_variable_set(attribute.ivar, attribute.evaluate_default) # steep:ignore
+        cattri_variable_set(attribute.ivar, attribute.evaluate_default, final: true) # steep:ignore
       end
     end
   end

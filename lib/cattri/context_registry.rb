@@ -30,7 +30,8 @@ module Cattri
     #
     # @return [Cattri::Context] the context used for method definition and visibility tracking
     def context
-      @context ||= Context.new(self) # steep:ignore
+      base = instance_variable_get(:@__cattri_base_target) || self
+      @context ||= Context.new(base) # steep:ignore
     end
   end
 end

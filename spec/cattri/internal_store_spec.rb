@@ -13,6 +13,16 @@ RSpec.describe Cattri::InternalStore do
 
   subject(:instance) { klass.new }
 
+  describe "#cattri_variables" do
+    it "returns a list of all cattri variables" do
+      instance.cattri_variable_set(:foo, 123)
+      instance.cattri_variable_set(:bar, 123)
+      instance.cattri_variable_set(:@baz, 123)
+
+      expect(instance.cattri_variables).to match_array(%i[foo bar baz])
+    end
+  end
+
   describe "#cattri_variable_defined?" do
     it "returns false when variable is not set" do
       expect(instance.cattri_variable_defined?(:foo)).to be false

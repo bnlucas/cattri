@@ -3,7 +3,7 @@
 require "spec_helper"
 
 RSpec.describe Cattri::Context do
-  let(:context_target) { Class.new }
+  let!(:context_target) { Class.new }
 
   def define_attribute(name, value, scope: :instance, visibility: :public)
     Cattri::Attribute.new(
@@ -181,6 +181,63 @@ RSpec.describe Cattri::Context do
     end
   end
 
+  describe "#target_for" do
+    subject(:result) { context.target_for(attribute) }
+
+    context "when a class-level attribute is provided" do
+      let(:attribute) { class_attribute }
+
+      it "returns the singleton_class" do
+        expect(result).to eq(context_target.singleton_class)
+      end
+    end
+
+    context "when a instance-level attribute is provided" do
+      let(:attribute) { instance_attribute }
+
+      it "returns the context's target" do
+        expect(result).to eq(context_target)
+      end
+    end
+
+    context "when a class-level attribute is provided and the context is a singleton_class" do
+      let(:context_target) { singleton_class }
+      let(:attribute) { class_attribute }
+
+      it "returns the singleton_class" do
+        expect(result).to eq(singleton_class)
+      end
+    end
+  end
+
+  describe "#storage_receiver_for" do
+    context "when a class-level attribute is provided" do
+      it "resolves to the instance's singleton_class, if instance is provided" do
+        receiver = context.storage_receiver_for(class_attribute, self)
+        expect(receiver).to eq(singleton_class)
+      end
+
+      it "resolves to the attribute's defined_in.singleton_class when no instance is provided" do
+        receiver = context.storage_receiver_for(class_attribute) # no instance passed
+        expect(receiver).to eq(context_target.singleton_class)
+      end
+    end
+
+    context "when a instance-level attribute is provided" do
+      it "returns the instance" do
+        receiver = context.storage_receiver_for(instance_attribute, self)
+        expect(receiver).to eq(self)
+      end
+    end
+
+    context "when a received cannot be resolved" do
+      it "raises an error" do
+        expect { context.storage_receiver_for(instance_attribute, nil) }
+          .to raise_error
+      end
+    end
+  end
+
   describe "#__cattri_defined_methods" do
     it "returns a Hash" do
       expect(context.send(:__cattri_defined_methods)).to be_a(Hash)
@@ -201,23 +258,82 @@ RSpec.describe Cattri::Context do
     end
   end
 
-  describe "#target_for" do
-    subject(:result) { context.send(:target_for, attribute) }
+  describe "#resolve_class_storage_for" do
+    def define_attribute(name, final:, defined_in:, scope: :class)
+      Cattri::Attribute.new(
+        name,
+        final: final,
+        defined_in: defined_in,
+        scope: scope,
+        default: -> { "value" },
+        visibility: :public
+      )
+    end
 
-    context "when a class-level attribute is provided" do
-      let(:attribute) { class_attribute }
+    context "when attribute is final" do
+      it "returns defined_in if already a singleton_class" do
+        mod = Module.new
+        singleton = mod.singleton_class
+        attribute = define_attribute(:final_attr, final: true, defined_in: singleton)
 
-      it "returns the singleton_class" do
-        expect(result).to eq(context_target.singleton_class)
+        expect(context.send(:resolve_class_storage_for, attribute, nil)).to eq(singleton)
+      end
+
+      it "returns singleton_class of defined_in if not already a singleton" do
+        klass = Class.new
+        attribute = define_attribute(:final_attr, final: true, defined_in: klass)
+
+        expect(context.send(:resolve_class_storage_for, attribute, nil)).to eq(klass.singleton_class)
       end
     end
 
-    context "when a instance-level attribute is provided" do
-      let(:attribute) { instance_attribute }
+    context "when attribute is not final" do
+      it "returns singleton_class of instance if instance is provided" do
+        instance = Object.new
+        attribute = define_attribute(:nonfinal_attr, final: false, defined_in: context_target)
 
-      it "returns the context's target" do
-        expect(result).to eq(context_target)
+        expect(context.send(:resolve_class_storage_for, attribute, instance)).to eq(instance.singleton_class)
       end
+
+      it "returns singleton_class of defined_in if no instance is provided" do
+        attribute = define_attribute(:nonfinal_attr, final: false, defined_in: context_target)
+
+        expect(context.send(:resolve_class_storage_for, attribute, nil)).to eq(context_target.singleton_class)
+      end
+    end
+  end
+
+  describe "#install_internal_store!" do
+    let(:context) { Cattri::Context.new(Object.new) }
+
+    it "does nothing if receiver already responds to cattri_variables" do
+      receiver = Class.new do
+        def self.cattri_variables; end
+      end
+
+      expect { context.send(:install_internal_store!, receiver) }
+        .not_to(change { receiver.ancestors })
+    end
+
+    it "extends singleton class if receiver is a singleton class" do
+      base = Class.new
+      singleton = base.singleton_class
+
+      expect(singleton.ancestors).not_to include(Cattri::InternalStore)
+
+      context.send(:install_internal_store!, singleton)
+
+      expect(singleton.ancestors).to include(Cattri::InternalStore)
+    end
+
+    it "includes module if receiver is a regular class or module" do
+      klass = Class.new
+
+      expect(klass.ancestors).not_to include(Cattri::InternalStore)
+
+      context.send(:install_internal_store!, klass)
+
+      expect(klass.ancestors).to include(Cattri::InternalStore)
     end
   end
 

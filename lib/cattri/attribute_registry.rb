@@ -87,23 +87,6 @@ module Cattri
       attribute.allowed_methods
     end
 
-    # Copies registered attributes from this context to another,
-    # preserving definitions and assigning values for `final: true, scope: :class`.
-    #
-    # @param target_context [Cattri::Context]
-    # @return [void]
-    def copy_attributes_to(target_context)
-      registered_attributes.each_value do |attribute|
-        next unless attribute.class_attribute? && attribute.final?
-
-        target_registry = target_context.target.send(:attribute_registry)
-        target_registry.send(:register_attribute, attribute)
-
-        value = context.target.cattri_variable_get(attribute.ivar) # steep:ignore
-        target_context.target.cattri_variable_set(attribute.ivar, value) # steep:ignore
-      end
-    end
-
     private
 
     # Validates that no attribute with the same name is already registered.
