@@ -35,14 +35,14 @@ module Cattri
     # @param expose [Symbol, String] one of: :read, :write, :read_write, :none
     # @return [Symbol]
     # @raise [Cattri::AttributeError] if the value is invalid
-    def self.validate_expose!: (expose_types | identifier expose) -> untyped
+    def self.validate_expose!: (expose_types | identifier expose, ?attribute_name: ::Symbol?) -> untyped
 
     # Validates and normalizes method visibility.
     #
     # @param visibility [Symbol, String] one of: :public, :protected, :private
     # @return [Symbol]
     # @raise [Cattri::AttributeError] if the value is invalid
-    def self.validate_visibility!: (visibility_types | identifier visibility) -> untyped
+    def self.validate_visibility!: (visibility_types | identifier visibility, ?attribute_name: ::Symbol?) -> untyped
 
     # Valid method visibility levels.
     VISIBILITIES: ::Array[visibility_types]

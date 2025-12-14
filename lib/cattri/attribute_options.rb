@@ -20,25 +20,29 @@ module Cattri
       # Validates and normalizes the `expose` configuration.
       #
       # @param expose [Symbol, String] one of: :read, :write, :read_write, :none
+      # @param attribute_name [Symbol, nil] optional attribute name for error context
       # @return [Symbol]
       # @raise [Cattri::AttributeError] if the value is invalid
-      def validate_expose!(expose)
+      def validate_expose!(expose, attribute_name: nil)
         expose = expose.to_sym
         return expose if EXPOSE_OPTIONS.include?(expose) # steep:ignore
 
-        raise Cattri::AttributeError, "Invalid expose option `#{expose.inspect}` for :#{name}"
+        detail = attribute_name ? " for :#{attribute_name}" : ""
+        raise Cattri::AttributeError, "Invalid expose option `#{expose.inspect}`#{detail}"
       end
 
       # Validates and normalizes method visibility.
       #
       # @param visibility [Symbol, String] one of: :public, :protected, :private
+      # @param attribute_name [Symbol, nil] optional attribute name for error context
       # @return [Symbol]
       # @raise [Cattri::AttributeError] if the value is invalid
-      def validate_visibility!(visibility)
+      def validate_visibility!(visibility, attribute_name: nil)
         visibility = visibility.to_sym
         return visibility if VISIBILITIES.include?(visibility) # steep:ignore
 
-        raise Cattri::AttributeError, "Invalid visibility `#{visibility.inspect}` for :#{name}"
+        detail = attribute_name ? " for :#{attribute_name}" : ""
+        raise Cattri::AttributeError, "Invalid visibility `#{visibility.inspect}`#{detail}"
       end
     end
 
@@ -88,8 +92,8 @@ module Cattri
       @predicate = predicate
       @default = normalize_default(default)
       @transformer = normalize_transformer(transformer)
-      @expose = self.class.validate_expose!(expose)
-      @visibility = self.class.validate_visibility!(visibility)
+      @expose = self.class.validate_expose!(expose, attribute_name: @name)
+      @visibility = self.class.validate_visibility!(visibility, attribute_name: @name)
 
       freeze
     end

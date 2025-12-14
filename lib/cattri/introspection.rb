@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "set"
+
 module Cattri
   # Provides a read-only interface for inspecting attributes defined via the Cattri DSL.
   #
@@ -62,7 +64,9 @@ module Cattri
       #
       # @return [Hash{Symbol => Set<Symbol>}]
       def attribute_methods
-        context.defined_methods # steep:ignore
+        attribute_registry.defined_attributes(with_ancestors: true).transform_values do |attribute| # steep:ignore
+          Set.new(attribute.allowed_methods)
+        end
       end
 
       # Returns the original class or module where the given attribute was defined.

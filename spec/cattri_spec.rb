@@ -35,6 +35,7 @@ RSpec.describe Cattri do
     let(:introspective_class) do
       Class.new do
         include Cattri
+
         cattri :id, "foo"
 
         with_cattri_introspection
@@ -56,6 +57,7 @@ RSpec.describe Cattri do
     it "allows one-time assignment to final instance attribute" do
       klass = Class.new do
         include Cattri
+
         cattri :value, final: true
 
         def initialize(value)
@@ -72,6 +74,7 @@ RSpec.describe Cattri do
     it "prevents any assignment to final class attribute" do
       klass = Class.new do
         include Cattri
+
         cattri :value, -> { "init" }, final: true, scope: :class
       end
 
@@ -82,11 +85,13 @@ RSpec.describe Cattri do
     it "allows shadowing parent class attributes" do
       parent = Class.new do
         include Cattri
+
         cattri :enabled, true, final: true, scope: :class
       end
 
       child = Class.new do
         include Cattri
+
         cattri :enabled, false, final: true, scope: :class
       end
 
@@ -97,6 +102,7 @@ RSpec.describe Cattri do
     it "defines predicate method for instance attribute" do
       klass = Class.new do
         include Cattri
+
         cattri :flag, false, predicate: true
       end
 
@@ -110,6 +116,7 @@ RSpec.describe Cattri do
     it "evaluates and stores default value lazily" do
       klass = Class.new do
         include Cattri
+
         cattri :computed, -> { "value" }
       end
 
@@ -123,6 +130,7 @@ RSpec.describe Cattri do
     it "isolates instance and class attributes correctly" do
       klass = Class.new do
         include Cattri
+
         cattri :config, scope: :class
         cattri :state, scope: :instance
       end
@@ -142,6 +150,7 @@ RSpec.describe Cattri do
       mod = Module.new do
         class << self
           include Cattri
+
           cattri :version, "0.1.0", final: true, scope: :class
         end
       end
@@ -152,6 +161,7 @@ RSpec.describe Cattri do
     it "isolates class attributes across subclasses" do
       parent = Class.new do
         include Cattri
+
         cattri :level, "parent", scope: :class
       end
 
@@ -167,6 +177,7 @@ RSpec.describe Cattri do
     it "applies custom coercion via block during assignment" do
       klass = Class.new do
         include Cattri
+
         cattri :age do |value|
           Integer(value)
         end
@@ -181,6 +192,7 @@ RSpec.describe Cattri do
     it "allows inherited initialize to set final attribute once" do
       base = Class.new do
         include Cattri
+
         cattri :token, final: true
 
         def initialize(token)
@@ -193,6 +205,37 @@ RSpec.describe Cattri do
 
       expect(obj.token).to eq("abc123")
       expect { obj.token = "fail" }.to raise_error(Cattri::AttributeError)
+    end
+  end
+
+  describe "visibility with write-only exposure" do
+    let(:klass) do
+      Class.new do
+        include Cattri
+
+        cattri :token, expose: :write
+        cattri :level, :low, expose: :write, scope: :class
+      end
+    end
+
+    it "keeps the reader private while writer stays public on instances" do
+      instance = klass.new
+
+      expect(klass.public_instance_methods(false)).to include(:token=)
+      expect(klass.private_instance_methods(false)).to include(:token)
+      expect { instance.token }.to raise_error(NoMethodError)
+
+      instance.token = "set"
+      expect(instance.send(:token)).to eq("set")
+    end
+
+    it "marks class-level readers as protected while keeping the writer public" do
+      expect(klass.singleton_class.public_instance_methods(false)).to include(:level=)
+      expect(klass.singleton_class.protected_instance_methods(false)).to include(:level)
+      expect { klass.level }.to raise_error(NoMethodError)
+
+      klass.level = :high
+      expect(klass.send(:level)).to eq(:high)
     end
   end
 end

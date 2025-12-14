@@ -105,7 +105,7 @@ module Cattri
     def readonly?
       return false if @options.expose == :none
 
-      @options.expose == :read || final?
+      @options.expose == :read
     end
 
     # @return [Boolean] whether the attribute is marked final (write-once)

@@ -6,6 +6,7 @@ RSpec.describe Cattri::ContextRegistry do
   let(:klass) do
     Class.new do
       include Cattri::ContextRegistry
+
       public :context, :attribute_registry
     end
   end

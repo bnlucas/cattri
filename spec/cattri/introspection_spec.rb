@@ -6,6 +6,7 @@ RSpec.describe Cattri::Introspection do
   let(:klass) do
     Class.new do
       include Cattri
+
       cattri :foo, 123
     end
   end
@@ -13,6 +14,7 @@ RSpec.describe Cattri::Introspection do
   let(:subclass) do
     Class.new(klass) do
       include Cattri::Introspection
+
       cattri :bar, "bar"
     end
   end
@@ -74,6 +76,12 @@ RSpec.describe Cattri::Introspection do
       expect(methods).to be_a(Hash)
       expect(methods.keys).to include(:bar)
       expect(methods[:bar]).to include(:bar)
+    end
+
+    it "includes methods for inherited attributes" do
+      methods = subclass.attribute_methods
+      expect(methods.keys).to include(:foo)
+      expect(methods[:foo]).to include(:foo)
     end
   end
 

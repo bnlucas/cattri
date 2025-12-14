@@ -144,6 +144,18 @@ RSpec.describe Cattri::AttributeOptions do
         expect(instance.instance_variable_get(:@visibility)).to eq(:private)
       end
     end
+
+    it "raises a helpful error when expose is invalid" do
+      expect do
+        described_class.new(name, expose: :bogus)
+      end.to raise_error(Cattri::AttributeError, /:bogus.*for :my_attribute/)
+    end
+
+    it "raises a helpful error when visibility is invalid" do
+      expect do
+        described_class.new(name, visibility: :bogus)
+      end.to raise_error(Cattri::AttributeError, /:bogus.*for :my_attribute/)
+    end
   end
 
   describe "#[]" do

@@ -67,6 +67,26 @@ RSpec.describe Cattri::AttributeCompiler do
         expect(instance.enabled?).to eq(true)
       end
     end
+
+    context "when expose is :read" do
+      let(:attribute) do
+        Cattri::Attribute.new(
+          :visible,
+          defined_in: dummy_class,
+          default: -> { "shown" },
+          expose: :read
+        )
+      end
+
+      it "does not define a writer" do
+        described_class.define_accessor(attribute, context)
+        instance = dummy_class.new
+
+        expect(instance.visible).to eq("shown")
+        expect(instance.respond_to?(:visible=)).to be(false)
+        expect(instance.respond_to?(:visible=, true)).to be(false)
+      end
+    end
   end
 
   describe ".define_accessor!" do

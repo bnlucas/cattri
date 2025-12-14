@@ -112,8 +112,8 @@ RSpec.describe Cattri::Attribute do
   describe "#writable?" do
     [
       [true, :read, false],
-      [true, :write, false],
-      [true, :read_write, false],
+      [true, :write, true],
+      [true, :read_write, true],
       [true, :none, false],
       [false, :read, false],
       [false, :write, true],
@@ -134,8 +134,8 @@ RSpec.describe Cattri::Attribute do
   describe "#readonly?" do
     [
       [true, :read, true],
-      [true, :write, true],
-      [true, :read_write, true],
+      [true, :write, false],
+      [true, :read_write, false],
       [true, :none, false],
       [false, :read, true],
       [false, :write, false],

@@ -33,7 +33,7 @@ module Cattri
         return if attribute.expose == :none
 
         define_accessor!(attribute, context)
-        define_writer!(attribute, context)
+        define_writer!(attribute, context) if attribute.writable?
         define_predicate!(attribute, context) if attribute.with_predicate?
       end
 

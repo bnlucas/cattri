@@ -1,3 +1,9 @@
+## [0.2.3] - 2025-12-14
+
+### Added
+- New specs covering write-only exposure visibility for both instance and class attributes, ensuring readers are properly private/protected while writers remain public.
+- Strengthened Context storage resolution tests to assert descriptive errors when instance receivers are missing.
+
 ## [0.2.2] - 2025-05-04
 
 No breaking changes – the public DSL (cattri, final_cattri) remains identical to v0.2.0.

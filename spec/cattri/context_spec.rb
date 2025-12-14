@@ -231,9 +231,10 @@ RSpec.describe Cattri::Context do
     end
 
     context "when a received cannot be resolved" do
-      it "raises an error" do
+      it "raises a descriptive Cattri::Error" do
         expect { context.storage_receiver_for(instance_attribute, nil) }
-          .to raise_error
+          .to raise_error(Cattri::Error,
+                          /Missing runtime instance for instance-level attribute :#{instance_attribute.name}/)
       end
     end
   end
