@@ -78,13 +78,37 @@ RSpec.describe Cattri::AttributeCompiler do
         )
       end
 
-      it "does not define a writer" do
+      it "keeps the writer private" do
         described_class.define_accessor(attribute, context)
         instance = dummy_class.new
 
         expect(instance.visible).to eq("shown")
         expect(instance.respond_to?(:visible=)).to be(false)
-        expect(instance.respond_to?(:visible=, true)).to be(false)
+        expect(instance.respond_to?(:visible=, true)).to be(true)
+
+        instance.send(:visible=, "hidden")
+        expect(instance.visible).to eq("hidden")
+      end
+    end
+
+    context "when writable? returns false" do
+      let(:attribute) do
+        Cattri::Attribute.new(
+          :disabled_writer,
+          defined_in: dummy_class,
+          default: -> { "initial" },
+          expose: :read_write
+        )
+      end
+
+      it "skips writer definition" do
+        allow(attribute).to receive(:writable?).and_return(false)
+
+        described_class.define_accessor(attribute, context)
+        instance = dummy_class.new
+
+        expect(instance).not_to respond_to(:disabled_writer=)
+        expect(instance.disabled_writer).to eq("initial")
       end
     end
   end
