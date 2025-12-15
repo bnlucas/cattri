@@ -1,0 +1,111 @@
+name: AI PR Review
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - labeled
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: >
+      github.event.pull_request.draft == false &&
+      contains(github.event.pull_request.labels.*.name, 'ai-review') &&
+      secrets.OPENAI_API_KEY != ''
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ai-pr-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Use the PR ref to include markdown prompt changes made in the PR itself.
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Generate AI review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const promptFile = '.github/ai-pr-review.md';
+            const promptText = fs.existsSync(promptFile) ? fs.readFileSync(promptFile, 'utf8') : '';
+            const systemPrompt = (/<!--\s*system-prompt:start\s*-->([^]*?)<!--\s*system-prompt:end\s*-->/.exec(promptText) || [])[1]?.trim();
+
+            // Fetch a minimal patch set to keep token spend low.
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const patches = files
+              .filter((f) => f.status !== 'removed' && f.patch)
+              .map((f) => `File: ${f.filename}\n${f.patch}`)
+              .join('\n\n')
+              .slice(0, 12000); // hard cap to control prompt size/cost
+
+            if (!patches) {
+              core.info('No patches available to review.');
+              return;
+            }
+
+            const systemMessage = systemPrompt || 'You are an expert Ruby library code reviewer. Be concise. List only concrete issues or risks. Prefer bullet points. If everything looks fine, reply with "No blocking issues found."';
+            const payload = {
+              model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+              temperature: 0.2,
+              max_tokens: 500,
+              messages: [
+                {
+                  role: 'system',
+                  content: systemMessage,
+                },
+                {
+                  role: 'user',
+                  content: `PR title: ${pr.title}\nPR description: ${pr.body || 'n/a'}\nReview the following diff patches and point out correctness issues, missing tests, or risky changes:\n\n${patches}`,
+                },
+              ],
+            };
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              },
+              body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+              const errText = await response.text();
+              core.setFailed(`OpenAI request failed: ${response.status} ${errText}`);
+            }
+
+            const data = await response.json();
+            const review = data?.choices?.[0]?.message?.content?.trim();
+
+            if (!review) {
+              core.setFailed('OpenAI response missing review content.');
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: `🤖 AI review (model: ${payload.model}):\n\n${review}`,
+            });
