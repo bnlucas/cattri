@@ -15,9 +15,7 @@ permissions:
 
 jobs:
   review:
-    if: >
-      github.event.pull_request.draft == false &&
-      contains(github.event.pull_request.labels.*.name, 'ai-review')
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     concurrency:
       group: ai-pr-review-${{ github.event.pull_request.number }}
@@ -38,8 +36,25 @@ jobs:
           # Use the PR ref to include markdown prompt changes made in the PR itself.
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Generate AI review
+      - name: Ensure ai-review label present
+        id: ensure_label
         if: env.HAS_OPENAI_KEY == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const hasLabel = labels.some((l) => l.name === 'ai-review');
+            core.setOutput('has_label', hasLabel ? 'true' : 'false');
+            if (!hasLabel) {
+              core.info('ai-review label not present; skipping.');
+            }
+
+      - name: Generate AI review
+        if: env.HAS_OPENAI_KEY == 'true' && steps.ensure_label.outputs.has_label == 'true'
         uses: actions/github-script@v7
         with:
           script: |
