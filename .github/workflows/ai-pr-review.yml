@@ -17,8 +17,7 @@ jobs:
   review:
     if: >
       github.event.pull_request.draft == false &&
-      contains(github.event.pull_request.labels.*.name, 'ai-review') &&
-      secrets.OPENAI_API_KEY != ''
+      contains(github.event.pull_request.labels.*.name, 'ai-review')
     runs-on: ubuntu-latest
     concurrency:
       group: ai-pr-review-${{ github.event.pull_request.number }}
@@ -26,14 +25,21 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+      HAS_OPENAI_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
     steps:
+      - name: Skip if API key missing
+        if: env.HAS_OPENAI_KEY != 'true'
+        run: echo "OPENAI_API_KEY not set; skipping AI review."
+
       - name: Checkout
+        if: env.HAS_OPENAI_KEY == 'true'
         uses: actions/checkout@v4
         with:
           # Use the PR ref to include markdown prompt changes made in the PR itself.
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Generate AI review
+        if: env.HAS_OPENAI_KEY == 'true'
         uses: actions/github-script@v7
         with:
           script: |
