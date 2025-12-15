@@ -206,6 +206,23 @@ RSpec.describe Cattri do
       expect(obj.token).to eq("abc123")
       expect { obj.token = "fail" }.to raise_error(Cattri::AttributeError)
     end
+
+    it "allows internal assignment for read-exposed attributes" do
+      klass = Class.new do
+        include Cattri
+
+        cattri :token, expose: :read
+
+        def initialize(token)
+          send(:token=, token)
+        end
+      end
+
+      instance = klass.new("abc123")
+
+      expect(instance.token).to eq("abc123")
+      expect { instance.token = "fail" }.to raise_error(NoMethodError)
+    end
   end
 
   describe "visibility with write-only exposure" do

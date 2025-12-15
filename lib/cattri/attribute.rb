@@ -94,11 +94,11 @@ module Cattri
       %i[read read_write].include?(@options.expose)
     end
 
-    # @return [Boolean] whether the attribute allows writing
+    # @return [Boolean] whether the attribute should define a writer (public or internal)
     def writable?
       return false if @options.expose == :none
 
-      !readonly?
+      !readonly? || internal_writer?
     end
 
     # @return [Boolean] whether the attribute is marked readonly

@@ -111,11 +111,11 @@ RSpec.describe Cattri::Attribute do
 
   describe "#writable?" do
     [
-      [true, :read, false],
+      [true, :read, true],
       [true, :write, true],
       [true, :read_write, true],
       [true, :none, false],
-      [false, :read, false],
+      [false, :read, true],
       [false, :write, true],
       [false, :read_write, true],
       [false, :none, false]
@@ -190,20 +190,26 @@ RSpec.describe Cattri::Attribute do
   end
 
   describe "#allowed_methods" do
-    shared_examples_for "allowed method set" do |writable, predicate, expected|
-      let(:expose) { writable ? :read_write : :read }
-      let(:predicate) { predicate }
-      let(:final) { false }
+    [
+      [:read_write, true,  %i[attr attr= attr?]],
+      [:read_write, false, %i[attr attr=]],
+      [:read, true,        %i[attr attr= attr?]],
+      [:read, false,       %i[attr attr=]],
+      [:write, true,       %i[attr attr= attr?]],
+      [:write, false,      %i[attr attr=]],
+      [:none, true,        %i[attr attr?]],
+      [:none, false,       [:attr]]
+    ].each do |(exposure, predicate_value, expected)|
+      context "when expose is #{exposure} and predicate: #{predicate_value}" do
+        let(:expose) { exposure }
+        let(:predicate) { predicate_value }
+        let(:final) { false }
 
-      it "returns #{expected.inspect} for writable: #{writable}, predicate: #{predicate}" do
-        expect(attribute.allowed_methods).to eq(expected)
+        it "returns #{expected.inspect}" do
+          expect(attribute.allowed_methods).to eq(expected)
+        end
       end
     end
-
-    it_behaves_like "allowed method set", true,  true,  %i[attr attr= attr?]
-    it_behaves_like "allowed method set", true,  false, %i[attr attr=]
-    it_behaves_like "allowed method set", false, true,  %i[attr attr?]
-    it_behaves_like "allowed method set", false, false, [:attr]
   end
 
   describe "#validate_assignment!" do

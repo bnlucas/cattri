@@ -35,7 +35,7 @@ module Cattri
         ?default: ::Proc | untyped | nil,
         ?expose: expose_types,
         ?visibility: visibility_types
-      ) { (?) -> untyped } -> ::Array[::Symbol]
+      ) ?{ (?) -> untyped } -> ::Array[::Symbol]
 
     # Defines a write-once (final) attribute.
     #
@@ -61,6 +61,6 @@ module Cattri
         ?default: ::Proc | untyped | nil,
         ?expose: expose_types,
         ?visibility: visibility_types
-      ) { (?) -> untyped } -> ::Array[::Symbol]
+      ) ?{ (?) -> untyped } -> ::Array[::Symbol]
   end
 end
